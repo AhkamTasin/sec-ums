@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}SEC UMS{% endblock %} — SEC UMS</title>
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/gfonts/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+</head>
+<body style="min-height: 100vh; background: radial-gradient(900px 500px at 85% -10%, rgba(196,77,104,.18), transparent 60%), radial-gradient(700px 520px at -5% 110%, rgba(70,90,200,.15), transparent 60%), var(--bg);">
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-5">
+            <div class="text-center mb-4">
+                <a href="{% url 'accounts:landing' %}" class="d-inline-block text-decoration-none">
+                    <img src="{% static 'img/logo.png' %}" alt="SEC logo" style="width: 84px; height: 84px;" class="bg-white rounded-circle p-1 shadow mb-2">
+                    <div class="fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif; color: var(--text);">Sylhet Engineering College</div>
+                    <small class="text-muted" style="letter-spacing: 1.6px; text-transform: uppercase; font-size: .68rem;">University Management System</small>
+                </a>
+            </div>
+            <div class="auth-card" style="max-width: none; padding: 1.8rem;">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags|default:'info' }} py-2">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                {% block content %}{% endblock %}
+            </div>
+            <div class="text-center mt-3">
+                <a class="text-muted text-decoration-none small" href="{% url 'accounts:login' %}">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Back to login
+                </a>
+            </div>
+            <p class="text-center small mt-4 mb-0" style="color: var(--muted);">
+                © {% now "Y" %} Sylhet Engineering College · University Management System · All Rights Reserved
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
