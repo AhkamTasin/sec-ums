@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Department Administrators{% endblock %}
+{% block page_heading %}Department Administrators{% endblock %}
+{% block page_subheading %}One administrator per department — create, edit, disable{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span>Administrators</span>
+        <a class="btn btn-primary" href="{% url 'accounts:add_dept_admin' %}"><i class="fa-solid fa-circle-plus me-1"></i>Create Administrator</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Username</th><th>Name</th><th>Department</th>
+                <th>Appointed</th><th>Status</th><th class="text-end pe-3">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for a in admins %}
+                <tr>
+                    <td class="ps-3"><code>{{ a.user.username }}</code></td>
+                    <td>
+                        <span class="avatar-initial me-2" style="width:30px;height:30px;font-size:.8rem;">{{ a.user.first_name|first|upper }}</span>
+                        {{ a.user.get_full_name }}
+                    </td>
+                    <td><span class="badge text-bg-primary">{{ a.department.code }}</span> <small class="text-muted">{{ a.department.name }}</small></td>
+                    <td>{{ a.appointed_at|date:"d M Y" }}</td>
+                    <td>
+                        {% if a.user.is_active %}<span class="badge text-bg-success">Active</span>
+                        {% else %}<span class="badge text-bg-secondary">Disabled</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:edit_dept_admin' a.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit</a>
+                        <form class="d-inline" method="post" action="{% url 'accounts:toggle_dept_admin' a.pk %}"
+                              data-confirm="{% if a.user.is_active %}Disable{% else %}Re-enable{% endif %} this administrator's account?">
+                            {% csrf_token %}
+                            {% if a.user.is_active %}
+                                <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-ban me-1"></i>Disable</button>
+                            {% else %}
+                                <button class="btn btn-sm btn-outline-success"><i class="fa-solid fa-circle-check me-1"></i>Re-enable</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No department administrators yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,224 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}SEC UMS{% endblock %} — SEC UMS</title>
+    <meta name="description" content="Sylhet Engineering College — University Management System">
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+    <script>
+    // apply the saved theme before first paint (no flash)
+    (function () {
+        var t = localStorage.getItem("sec-theme");
+        if (t === "dark" || (t === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+            document.documentElement.setAttribute("data-bs-theme", "dark");
+        }
+    })();
+    </script>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/gfonts/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div id="sec-loader"></div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<nav class="ums-sidebar d-flex" id="umsSidebar">
+    <a class="brand" href="{% url 'accounts:landing' %}">
+        <img class="brand-logo" src="{% static 'img/logo.png' %}" alt="SEC logo">
+        <span>
+            <span class="brand-name">SEC UMS</span>
+            <span class="brand-sub">Sylhet Engineering College</span>
+        </span>
+    </a>
+
+    <ul class="nav flex-column mt-1">
+        {% if request.user.role == "SUPER_ADMIN" or request.user.is_superuser %}
+            <li class="nav-section">Super Admin</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" href="{% url 'accounts:admin_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_departments' %}active{% endif %}" href="{% url 'accounts:manage_departments' %}"><i class="fa-solid fa-building"></i>Departments</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_dept_admins' %}active{% endif %}" href="{% url 'accounts:manage_dept_admins' %}"><i class="fa-solid fa-user-gear"></i>Dept Administrators</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_users' %}active{% endif %}" href="{% url 'accounts:manage_users' %}"><i class="fa-solid fa-users-gear"></i>All Users</a></li>
+            <li class="nav-section">Records</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}" href="{% url 'accounts:manage_students' %}"><i class="fa-solid fa-user-graduate"></i>Students</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_teachers' %}active{% endif %}" href="{% url 'accounts:manage_teachers' %}"><i class="fa-solid fa-chalkboard-user"></i>Teachers</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'manage_notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-bullhorn"></i>Notices</a></li>
+
+        {% elif request.user.role == "DEPT_ADMIN" %}
+            <li class="nav-section">Department Admin{% if request.managed_department %} — {{ request.managed_department.code }}{% endif %}</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_dashboard' %}active{% endif %}" href="{% url 'accounts:dept_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_students' %}active{% endif %}" href="{% url 'accounts:dept_students' %}"><i class="fa-solid fa-user-graduate"></i>Students</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_teachers' %}active{% endif %}" href="{% url 'accounts:dept_teachers' %}"><i class="fa-solid fa-chalkboard-user"></i>Teachers</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_courses' %}active{% endif %}" href="{% url 'accounts:dept_courses' %}"><i class="fa-solid fa-book-open"></i>Courses</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_semesters' %}active{% endif %}" href="{% url 'accounts:dept_semesters' %}"><i class="fa-solid fa-layer-group"></i>Semesters</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_results' %}active{% endif %}" href="{% url 'accounts:dept_results' %}"><i class="fa-solid fa-square-poll-vertical"></i>Results &amp; Publish</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_routine' %}active{% endif %}" href="{% url 'accounts:dept_routine' %}"><i class="fa-solid fa-calendar-days"></i>Class Routine</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dept_notices' %}active{% endif %}" href="{% url 'accounts:dept_notices' %}"><i class="fa-solid fa-bullhorn"></i>Dept Notices</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-newspaper"></i>Notice Board</a></li>
+
+        {% elif request.user.role == "STUDENT" %}
+            <li class="nav-section">Student Module</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_dashboard' %}active{% endif %}" href="{% url 'academics:student_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_profile' %}active{% endif %}" href="{% url 'academics:student_profile' %}"><i class="fa-solid fa-user"></i>My Profile</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_attendance' %}active{% endif %}" href="{% url 'academics:student_attendance' %}"><i class="fa-solid fa-clipboard-check"></i>Attendance</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_assignments' %}active{% endif %}" href="{% url 'academics:student_assignments' %}"><i class="fa-solid fa-list-check"></i>Assignments</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_incourse' %}active{% endif %}" href="{% url 'academics:student_incourse' %}"><i class="fa-solid fa-arrow-trend-up"></i>In-course Marks</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_results' %}active{% endif %}" href="{% url 'academics:student_results' %}"><i class="fa-solid fa-square-poll-vertical"></i>My Results</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_routine' %}active{% endif %}" href="{% url 'academics:student_routine' %}"><i class="fa-solid fa-calendar-days"></i>Class Routine</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'student_fees' %}active{% endif %}" href="{% url 'academics:student_fees' %}"><i class="fa-solid fa-coins"></i>Fees &amp; Payments</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-bullhorn"></i>Notices</a></li>
+
+        {% elif request.user.role == "TEACHER" %}
+            <li class="nav-section">Teacher Module</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}" href="{% url 'academics:teacher_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_attendance' %}active{% endif %}" href="{% url 'academics:teacher_attendance' %}"><i class="fa-solid fa-clipboard-check"></i>Attendance</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_materials' %}active{% endif %}" href="{% url 'academics:teacher_materials' %}"><i class="fa-solid fa-folder-open"></i>Course Materials</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_assessments' or request.resolver_match.url_name == 'teacher_assessment_marks' %}active{% endif %}" href="{% url 'academics:teacher_assessments' %}"><i class="fa-solid fa-list-check"></i>Assessments</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_results_courses' or request.resolver_match.url_name == 'teacher_results_entry' %}active{% endif %}" href="{% url 'academics:teacher_results_courses' %}"><i class="fa-solid fa-square-poll-vertical"></i>Exam Results</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'teacher_routine' %}active{% endif %}" href="{% url 'academics:teacher_routine' %}"><i class="fa-solid fa-calendar-days"></i>Class Routine</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-bullhorn"></i>Notices</a></li>
+
+        {% elif request.user.role == "CASHIER" %}
+            <li class="nav-section">Cashier Module</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'cashier_dashboard' %}active{% endif %}" href="{% url 'fees:cashier_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'payment_record' %}active{% endif %}" href="{% url 'fees:payment_record' %}"><i class="fa-solid fa-money-bill-wave"></i>Receive Payment</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'payment_list' or request.resolver_match.url_name == 'payment_edit' %}active{% endif %}" href="{% url 'fees:payment_list' %}"><i class="fa-solid fa-receipt"></i>Payment History</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'dues_list' %}active{% endif %}" href="{% url 'fees:dues_list' %}"><i class="fa-solid fa-hourglass-half"></i>Dues &amp; Bills</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'daily_report' %}active{% endif %}" href="{% url 'fees:daily_report' %}"><i class="fa-solid fa-chart-column"></i>Daily Report</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'fee_structures' %}active{% endif %}" href="{% url 'fees:fee_structures' %}"><i class="fa-solid fa-file-invoice-dollar"></i>Fee Structure</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-bullhorn"></i>Notices</a></li>
+
+        {% elif request.user.role == "LIBRARIAN" %}
+            <li class="nav-section">Library Module</li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'librarian_dashboard' %}active{% endif %}" href="{% url 'library:librarian_dashboard' %}"><i class="fa-solid fa-gauge-high"></i>Dashboard</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'book_list' or request.resolver_match.url_name == 'book_detail' or request.resolver_match.url_name == 'book_add' %}active{% endif %}" href="{% url 'library:book_list' %}"><i class="fa-solid fa-book-open"></i>Book Catalogue</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'issue_book' %}active{% endif %}" href="{% url 'library:issue_book' %}"><i class="fa-solid fa-book-bookmark"></i>Issue Book</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'issued_list' %}active{% endif %}" href="{% url 'library:issued_list' %}"><i class="fa-solid fa-arrows-rotate"></i>Circulation &amp; History</a></li>
+            <li><a class="nav-link" href="{% url 'library:issued_list' %}?status=OVERDUE"><i class="fa-solid fa-triangle-exclamation"></i>Overdue Books</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'library_card' %}active{% endif %}" href="{% url 'library:library_card' %}"><i class="fa-solid fa-id-card"></i>Library Card</a></li>
+            <li><a class="nav-link {% if request.resolver_match.url_name == 'notices' %}active{% endif %}" href="{% url 'academics:notices' %}"><i class="fa-solid fa-bullhorn"></i>Notices</a></li>
+        {% endif %}
+    </ul>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <span class="su-avatar">{{ request.user.first_name|first|default:request.user.username|first|upper }}</span>
+            <div style="min-width: 0;">
+                <div class="text-white fw-semibold text-truncate small">{{ request.user.get_full_name|default:request.user.username }}</div>
+                <span class="badge rounded-pill" style="background: rgba(196,77,104,.25); color: #f2c1cd; font-size: .62rem;">{{ request.user.get_role_display }}</span>
+            </div>
+            <form method="post" action="{% url 'accounts:logout' %}" class="ms-auto">
+                {% csrf_token %}
+                <button class="icon-btn" style="width:32px;height:32px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#e4b7c2;" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<div class="ums-main">
+    <div class="ums-topbar d-flex justify-content-between align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <button class="icon-btn d-lg-none" id="sidebarToggle" title="Menu"><i class="fa-solid fa-bars"></i></button>
+            <div>
+                <h5 class="mb-0 fw-bold" style="font-size: 1.05rem;">{% block page_heading %}{% endblock %}</h5>
+                <small class="text-muted d-none d-sm-block">{% block page_subheading %}{% endblock %}</small>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            {% if topbar_search_action %}
+            <form class="topbar-search d-none d-md-flex" method="get" action="{{ topbar_search_action }}">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" name="q" placeholder="Search {{ topbar_search_label }}...">
+            </form>
+            {% endif %}
+
+            <span class="text-muted small d-none d-xl-inline me-1"><i class="fa-regular fa-calendar-days me-1"></i>{% now "d M Y" %}</span>
+
+            {# notifications #}
+            <div class="dropdown">
+                <button class="icon-btn" data-bs-toggle="dropdown" title="Notifications">
+                    <i class="fa-regular fa-bell"></i>
+                    {% if top_notices %}<span class="dot-badge">{{ top_notices|length }}</span>{% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="width: 320px;">
+                    <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: var(--surface-2); border-bottom: 1px solid var(--border);">
+                        <strong class="small">Notifications</strong>
+                        <a class="small text-decoration-none" href="{% url 'academics:notices' %}">View all</a>
+                    </div>
+                    <div style="max-height: 320px; overflow-y: auto;">
+                        {% for n in top_notices %}
+                        <a href="{% url 'academics:notices' %}" class="dropdown-item px-3 py-2" style="white-space: normal;">
+                            <span class="d-block fw-semibold text-truncate">{{ n.title }}</span>
+                            <small class="text-muted"><i class="fa-regular fa-clock me-1"></i>{{ n.created_at|date:"d M Y" }}</small>
+                        </a>
+                        {% empty %}
+                        <div class="text-center text-muted py-4 small"><i class="fa-regular fa-bell-slash d-block fs-4 mb-1"></i>No notifications</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {# theme toggle #}
+            <button class="icon-btn" id="themeToggle" title="Toggle dark / light mode">
+                <i class="fa-solid fa-moon" id="themeIconDark"></i>
+                <i class="fa-solid fa-sun d-none" id="themeIconLight"></i>
+            </button>
+
+            {# user #}
+            <div class="dropdown">
+                <a class="d-flex align-items-center gap-2 text-decoration-none dropdown-toggle" style="color: var(--text);" href="#" data-bs-toggle="dropdown">
+                    <span class="avatar-initial">{{ request.user.first_name|first|default:request.user.username|first|upper }}</span>
+                    <span class="d-none d-md-block">
+                        <span class="d-block fw-semibold" style="line-height:1.1; font-size: .87rem;">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <small class="text-muted">{{ request.user.get_role_display }}</small>
+                    </span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li class="px-3 py-2 small">
+                        <div class="fw-bold">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="text-muted">{{ request.user.email|default:"" }}</div>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'accounts:password_change' %}"><i class="fa-solid fa-key me-2"></i>Change Password</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form method="post" action="{% url 'accounts:logout' %}">
+                            {% csrf_token %}
+                            <button class="dropdown-item" style="color: #d3355b;"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <main class="ums-content">
+        {# Django messages -> picked up by main.js and shown as SweetAlert2 toasts #}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="flash-message d-none" data-tag="{{ message.tags|default:'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="ums-footer d-flex flex-wrap justify-content-between gap-1">
+        <span>© {% now "Y" %} <span class="f-brand">Sylhet Engineering College</span> — University Management System</span>
+        <span class="d-none d-md-inline">All Rights Reserved</span>
+    </footer>
+</div>
+
+<script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/sweetalert2.all.min.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

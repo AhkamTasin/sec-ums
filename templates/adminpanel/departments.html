@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Departments{% endblock %}
+{% block page_heading %}Departments{% endblock %}
+{% block page_subheading %}Create departments — each has one Department Administrator{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span>All departments</span>
+        <a class="btn btn-primary" href="{% url 'accounts:add_department' %}"><i class="fa-solid fa-circle-plus me-1"></i>Create Department</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Code</th><th>Department</th><th>Administrator</th>
+                <th class="text-center">Students</th><th class="text-center">Teachers</th>
+                <th class="text-center">Courses</th><th class="text-end pe-3"></th>
+            </tr></thead>
+            <tbody>
+            {% for d in departments %}
+                <tr>
+                    <td class="ps-3"><span class="badge text-bg-primary">{{ d.code }}</span></td>
+                    <td class="fw-semibold">{{ d.name }}</td>
+                    <td>
+                        {% if d.administrator %}
+                            {{ d.administrator.user.get_full_name }}
+                            <small class="text-muted">({{ d.administrator.user.username }})</small>
+                        {% else %}
+                            <span class="text-muted fst-italic">Not assigned</span>
+                            <a class="btn btn-sm btn-link p-0 ms-1" href="{% url 'accounts:add_dept_admin' %}">assign</a>
+                        {% endif %}
+                    </td>
+                    <td class="text-center"><span class="badge text-bg-light border">{{ d.student_count }}</span></td>
+                    <td class="text-center"><span class="badge text-bg-light border">{{ d.teacher_count }}</span></td>
+                    <td class="text-center"><span class="badge text-bg-light border">{{ d.course_count }}</span></td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:edit_department' d.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No departments yet — create the first one.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Teachers{% endblock %}
+{% block page_heading %}Teacher Records{% endblock %}
+{% block page_subheading %}View, add and update teachers{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <form class="d-flex gap-2" method="get">
+            <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Search name or employee ID...">
+            <button class="btn btn-outline-primary"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+        <a class="btn btn-primary" href="{% url 'accounts:add_teacher' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Teacher</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Employee ID</th><th>Name</th><th>Department</th>
+                <th>Designation</th><th>Qualification</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody>
+            {% for t in teachers %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ t.employee_id }}</td>
+                    <td>
+                        <span class="avatar-initial me-2" style="width:30px;height:30px;font-size:.8rem;">{{ t.user.first_name|first|upper }}</span>
+                        {{ t.user.get_full_name }}
+                    </td>
+                    <td><span class="badge text-bg-light border">{{ t.department.code }}</span></td>
+                    <td>{{ t.get_designation_display }}</td>
+                    <td>{{ t.qualification|default:"—" }}</td>
+                    <td>
+                        {% if t.user.is_active %}<span class="badge text-bg-success">Active</span>
+                        {% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:edit_teacher' t.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No teachers found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

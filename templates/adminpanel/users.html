@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}All Users{% endblock %}
+{% block page_heading %}All Users{% endblock %}
+{% block page_subheading %}Every account in the system — filter, inspect, enable or disable{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3">
+        <form class="d-flex gap-2 flex-wrap" method="get">
+            <input class="form-control" style="max-width:240px;" type="search" name="q" value="{{ q }}" placeholder="Search username or name...">
+            <select name="role" class="form-select" style="max-width:230px;">
+                <option value="">All roles</option>
+                {% for value, label in roles %}<option value="{{ value }}" {% if role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-outline-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Username</th><th>Name</th><th>Role</th><th>Email</th>
+                <th>Status</th><th class="text-end pe-3">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for u in users %}
+                <tr>
+                    <td class="ps-3"><code>{{ u.username }}</code>{% if u.is_superuser %} <span class="badge text-bg-dark">superuser</span>{% endif %}</td>
+                    <td>{{ u.get_full_name|default:"—" }}</td>
+                    <td><span class="badge text-bg-light border">{{ u.get_role_display }}</span></td>
+                    <td>{{ u.email|default:"—" }}</td>
+                    <td>
+                        {% if u.is_active %}<span class="badge text-bg-success">Active</span>
+                        {% else %}<span class="badge text-bg-secondary">Disabled</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        {% if not u.is_superuser %}
+                        <form class="d-inline" method="post" action="{% url 'accounts:toggle_user' u.pk %}"
+                              data-confirm="{% if u.is_active %}Disable{% else %}Re-enable{% endif %} account {{ u.username }}?">
+                            {% csrf_token %}
+                            {% if u.is_active %}
+                                <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-ban me-1"></i>Disable</button>
+                            {% else %}
+                                <button class="btn btn-sm btn-outline-success"><i class="fa-solid fa-circle-check me-1"></i>Re-enable</button>
+                            {% endif %}
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No users match the filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

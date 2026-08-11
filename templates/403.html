@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block page_heading %}Access Denied{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7 col-xl-6">
+    <div class="card"><div class="card-body text-center p-5">
+        <div class="es-ico mb-3" style="width:96px;height:96px;border-radius:28px;background:var(--brand-50);color:var(--brand-600);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:2.6rem;">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h3 class="mt-3 fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">Restricted area</h3>
+        <p class="text-muted mb-1">You don't have permission to view this page.</p>
+        <p class="text-muted small">Signed in as <strong>{{ request.user.get_full_name|default:request.user.username }}</strong> ({{ request.user.get_role_display }}) — this area belongs to a different role.</p>
+        <div class="d-flex gap-2 justify-content-center mt-4">
+            <a class="btn btn-primary" href="{% url 'accounts:dashboard' %}"><i class="fa-solid fa-gauge-high me-1"></i>Back to my dashboard</a>
+            <a class="btn btn-outline-secondary" href="javascript:history.back()"><i class="fa-solid fa-arrow-left me-1"></i>Go back</a>
+        </div>
+    </div></div>
+</div></div>
+{% endblock %}
