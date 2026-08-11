@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Assessments{% endblock %}
+{% block page_heading %}Assessments — Quizzes, Assignments &amp; Lab Work{% endblock %}
+{% block page_subheading %}Create them, attach files, then enter marks per assessment{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 80px;">
+            <div class="card-header py-3"><i class="fa-solid fa-circle-plus me-2 text-primary"></i>Create Assessment</div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button class="btn btn-primary w-100"><i class="fa-solid fa-circle-plus me-1"></i>Create</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <ul class="nav nav-pills mb-3">
+            <li class="nav-item"><a class="nav-link {% if not kind %}active{% endif %}" href="?">All</a></li>
+            <li class="nav-item"><a class="nav-link {% if kind == 'QUIZ' %}active{% endif %}" href="?kind=QUIZ">Quizzes</a></li>
+            <li class="nav-item"><a class="nav-link {% if kind == 'ASSIGNMENT' %}active{% endif %}" href="?kind=ASSIGNMENT">Assignments</a></li>
+            <li class="nav-item"><a class="nav-link {% if kind == 'LAB' %}active{% endif %}" href="?kind=LAB">Lab Work</a></li>
+        </ul>
+        {% for a in assessments %}
+        <div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div>
+                <span class="badge text-bg-{% if a.kind == 'QUIZ' %}primary{% elif a.kind == 'ASSIGNMENT' %}success{% else %}warning{% endif %} me-1">{{ a.get_kind_display }}</span>
+                <span class="badge text-bg-light border">{{ a.course.code }}</span>
+                <div class="fw-semibold mt-1">{{ a.title }}</div>
+                {% if a.description %}<small class="text-muted d-block">{{ a.description|truncatewords:20 }}</small>{% endif %}
+                <small class="text-muted">
+                    Max {{ a.max_marks|floatformat:0 }} marks
+                    {% if a.due_date %} · due {{ a.due_date|date:"d M Y" }}{% endif %}
+                    {% if a.file %} · <a href="{{ a.file.url }}" target="_blank" class="text-decoration-none"><i class="fa-solid fa-paperclip"></i> attachment</a>{% endif %}
+                </small>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0 align-items-center">
+                <span class="badge text-bg-light border">{{ a.mark_count }} marked</span>
+                <a class="btn btn-sm btn-primary" href="{% url 'academics:teacher_assessment_marks' a.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Enter Marks</a>
+                <form method="post" action="{% url 'academics:teacher_assessment_delete' a.pk %}" data-confirm="Delete this assessment and its marks?">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                </form>
+            </div>
+        </div></div>
+        {% empty %}
+        <div class="card"><div class="card-body text-center text-muted py-5">
+            <i class="fa-solid fa-clipboard-check display-4 d-block mb-2"></i>No assessments yet — create the first one.
+        </div></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

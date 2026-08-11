@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block page_heading %}Manage Attendance{% endblock %}
+{% block page_subheading %}Choose a course and date, then save each student's status{% endblock %}
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body d-flex gap-2 flex-wrap align-items-end">
+        <form class="d-flex gap-2 flex-wrap align-items-end" method="get">
+            <div>
+                <label class="form-label fw-semibold mb-1">Course</label>
+                <select name="course" class="form-select" onchange="this.form.submit()">
+                    <option value="">— choose course —</option>
+                    {% for c in courses %}
+                    <option value="{{ c.id }}" {% if course and course.id == c.id %}selected{% endif %}>{{ c.code }} — {{ c.title }} (Sem {{ c.semester }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label fw-semibold mb-1">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ att_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+            </div>
+        </form>
+        {% if course %}
+        <span class="badge text-bg-light border ms-auto p-2"><i class="fa-solid fa-users me-1"></i>{{ students|length }} students</span>
+        {% endif %}
+    </div>
+</div>
+
+{% if course %}
+<div class="card">
+    <div class="card-header py-3"><i class="fa-solid fa-calendar-check me-2 text-primary"></i>{{ course.code }} — {{ att_date|date:"l, d M Y" }}</div>
+    <div class="card-body p-0">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="course" value="{{ course.id }}">
+            <input type="hidden" name="date" value="{{ att_date|date:'Y-m-d' }}">
+            <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr>
+                    <th class="ps-3" style="width:55px;">#</th><th>Reg No</th><th>Student</th>
+                    <th class="text-center" style="width:190px;">Status</th>
+                    <th class="text-center pe-3">Course attendance</th>
+                </tr></thead>
+                <tbody>
+                {% for row in stats %}
+                <tr>
+                    <td class="ps-3 text-muted">{{ forloop.counter }}</td>
+                    <td class="fw-semibold">{{ row.student.reg_no }}</td>
+                    <td>{{ row.student.user.get_full_name }}</td>
+                    <td>
+                        <select name="att_{{ row.student.id }}" class="form-select form-select-sm text-center">
+                            <option value="PRESENT" {% if row.status == "PRESENT" %}selected{% endif %}>Present</option>
+                            <option value="ABSENT" {% if row.status == "ABSENT" %}selected{% endif %}>Absent</option>
+                            <option value="LATE" {% if row.status == "LATE" %}selected{% endif %}>Late</option>
+                        </select>
+                    </td>
+                    <td class="text-center pe-3">
+                        {% if row.pct is not None %}<span class="badge text-bg-{% if row.pct >= 75 %}success{% elif row.pct >= 60 %}warning{% else %}danger{% endif %}">{{ row.pct }}%</span>
+                        {% else %}<span class="text-muted small">no records</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No students enrolled.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% if students %}
+            <div class="card-footer bg-white p-3">
+                <button name="save_attendance" value="1" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save Attendance</button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center text-muted py-5">
+    <i class="fa-solid fa-calendar-check display-3 d-block mb-2"></i>Select a course to take attendance.
+</div></div>
+{% endif %}
+{% endblock %}

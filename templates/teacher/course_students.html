@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Students — {{ course.code }}{% endblock %}
+{% block page_heading %}Assigned Students — {{ course.code }}{% endblock %}
+{% block page_subheading %}{{ course.title }} · {{ course.department.code }}, Semester {{ course.semester }}{% endblock %}
+{% block content %}
+<div class="row g-3">
+    {% for s in students %}
+    <div class="col-sm-6 col-md-4 col-xl-3">
+        <div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+            <span class="avatar-initial" style="width:44px;height:44px;">{{ s.user.first_name|first|upper }}{{ s.user.last_name|first|upper }}</span>
+            <div>
+                <div class="fw-semibold">{{ s.user.get_full_name }}</div>
+                <small class="text-muted">{{ s.reg_no }}</small>
+                <div><span class="badge text-bg-light border mt-1">Sem {{ s.semester }} · {{ s.session }}</span></div>
+            </div>
+        </div></div>
+    </div>
+    {% empty %}
+    <div class="col-12"><div class="card"><div class="card-body text-center text-muted py-5">
+        <i class="fa-solid fa-users display-4 d-block mb-2"></i>No students enrolled in this semester.
+    </div></div></div>
+    {% endfor %}
+</div>
+{% endblock %}

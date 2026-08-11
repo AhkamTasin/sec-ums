@@ -1,0 +1,24 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Print{% endblock %} — SEC UMS</title>
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/gfonts/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+</head>
+<body class="bg-white">
+<div class="container py-3" style="max-width: 900px;">
+    <div class="page-toolbar no-print d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print</button>
+        <button class="btn btn-outline-secondary" onclick="history.back()"><i class="fa-solid fa-arrow-left me-1"></i>Back</button>
+        <span class="ms-auto small text-muted d-none d-md-inline"><i class="fa-solid fa-file-lines me-1"></i>Sylhet Engineering College — official document</span>
+    </div>
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Course Materials{% endblock %}
+{% block page_heading %}Course Materials{% endblock %}
+{% block page_subheading %}Upload lecture files — students download them instantly{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-cloud-arrow-up me-2 text-primary"></i>Upload Material</div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button class="btn btn-primary w-100"><i class="fa-solid fa-cloud-arrow-up me-1"></i>Upload</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="row g-3">
+            {% for m in materials %}
+            <div class="col-md-6">
+                <div class="card stat-card h-100"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge text-bg-light border mb-1">{{ m.course.code }}</span>
+                            <div class="fw-semibold">{{ m.title }}</div>
+                            {% if m.description %}<small class="text-muted d-block">{{ m.description }}</small>{% endif %}
+                            <small class="text-muted"><i class="fa-solid fa-clock me-1"></i>{{ m.uploaded_at|date:"d M Y" }}</small>
+                        </div>
+                        <span class="fs-3 text-primary"><i class="fa-solid fa-file-lines"></i></span>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ m.file.url }}" target="_blank"><i class="fa-solid fa-download me-1"></i>Download</a>
+                        <form method="post" action="{% url 'academics:teacher_material_delete' m.pk %}" data-confirm="Delete this material?">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                        </form>
+                    </div>
+                </div></div>
+            </div>
+            {% empty %}
+            <div class="col-12"><div class="card"><div class="card-body text-center text-muted py-5">
+                <i class="fa-solid fa-folder-open display-4 d-block mb-2"></i>No materials uploaded yet.
+            </div></div></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

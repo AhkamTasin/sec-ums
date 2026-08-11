@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboard{% endblock %}
+{% block page_heading %}Welcome, {{ teacher.user.first_name }}!{% endblock %}
+{% block page_subheading %}{{ teacher.get_designation_display }} — {{ teacher.department.name }}{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-indigo"><i class="fa-solid fa-book-open"></i></div>
+        <div><div class="fs-4 fw-bold">{{ course_rows|length }}</div><small class="text-muted">My courses</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-violet"><i class="fa-solid fa-user-graduate"></i></div>
+        <div><div class="fs-4 fw-bold">{{ total_students }}</div><small class="text-muted">Total students</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-sky"><i class="fa-solid fa-clipboard-check"></i></div>
+        <div><div class="fs-4 fw-bold">{{ today_classes|length }}</div><small class="text-muted">Classes today</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-amber"><i class="fa-solid fa-clock-rotate-left"></i></div>
+        <div><div class="fs-4 fw-bold">{{ teacher.routines.count }}</div><small class="text-muted">Weekly slots</small></div>
+    </div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card mb-3">
+            <div class="card-header py-3"><i class="fa-solid fa-book-open me-2 text-primary"></i>My Courses</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th class="ps-3">Course</th><th>Semester</th><th class="text-center">Students</th><th class="text-center">Credit</th><th class="pe-3"></th></tr></thead>
+                    <tbody>
+                    {% for row in course_rows %}
+                        <tr>
+                            <td class="ps-3"><strong>{{ row.course.code }}</strong> — {{ row.course.title }}</td>
+                            <td>{{ row.course.department.code }}, Sem {{ row.course.semester }}</td>
+                            <td class="text-center"><span class="badge text-bg-light border">{{ row.students }}</span></td>
+                            <td class="text-center">{{ row.course.credit }}</td>
+                            <td class="text-end pe-3 text-nowrap">
+                                <a class="btn btn-sm btn-outline-primary" href="{% url 'academics:teacher_course_students' row.course.id %}" title="View assigned students"><i class="fa-solid fa-users me-1"></i>Students</a>
+                                <a class="btn btn-sm btn-outline-success" href="{% url 'academics:teacher_incourse' row.course.id %}" title="Calculate & submit in-course marks"><i class="fa-solid fa-arrow-trend-up me-1"></i>In-course</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-4">No courses assigned yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-calendar-day me-2 text-success"></i>Today's Classes</div>
+            <div class="card-body">
+                {% for slot in today_classes %}
+                <div class="routine-slot d-flex justify-content-between">
+                    <div><strong>{{ slot.course.code }}</strong> — {{ slot.course.title }}
+                        <div class="small text-muted">Semester {{ slot.semester }} · Room {{ slot.room }}</div></div>
+                    <span class="text-muted small">{{ slot.start_time|time:"h:i A" }} – {{ slot.end_time|time:"h:i A" }}</span>
+                </div>
+                {% empty %}
+                <div class="text-muted text-center py-3">No classes today.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="fa-solid fa-bullhorn me-2 text-warning"></i>Latest Notices</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for n in notices %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-semibold">{{ n.title }}</span>
+                            <small class="text-muted">{{ n.created_at|date:"d M" }}</small>
+                        </div>
+                        <small class="text-muted">{{ n.body|truncatewords:16 }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted text-center py-4">No notices.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'academics:notices' %}">View all notices</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

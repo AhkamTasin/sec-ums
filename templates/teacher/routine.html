@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Class Routine{% endblock %}
+{% block page_heading %}Class Routine{% endblock %}
+{% block page_subheading %}Schedule classes for your courses — students see them instantly{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-circle-plus me-2 text-primary"></i>Schedule a Class</div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button class="btn btn-primary w-100"><i class="fa-solid fa-calendar-plus me-1"></i>Add to Routine</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="row g-3">
+            {% for day, slots in grid %}
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header py-2"><span class="routine-day">{{ day }}</span></div>
+                    <div class="card-body">
+                        {% for slot in slots %}
+                        <div class="routine-slot d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="d-flex justify-content-between gap-3">
+                                    <strong>{{ slot.course.code }}</strong>
+                                    <small class="text-muted">{{ slot.start_time|time:"h:i A" }} – {{ slot.end_time|time:"h:i A" }}</small>
+                                </div>
+                                <div class="text-muted small">{{ slot.course.title }} · Sem {{ slot.semester }} · Room {{ slot.room }}</div>
+                            </div>
+                            <form method="post" action="{% url 'academics:teacher_routine_delete' slot.pk %}" data-confirm="Remove this class slot?">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-link text-danger p-0 ms-2" title="Remove"><i class="fa-solid fa-circle-xmark"></i></button>
+                            </form>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted small fst-italic">No classes scheduled.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
