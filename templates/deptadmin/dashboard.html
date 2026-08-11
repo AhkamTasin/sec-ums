@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Department Dashboard{% endblock %}
+{% block page_heading %}{{ dept.name }}{% endblock %}
+{% block page_subheading %}Department Administration — you can only manage {{ dept.code }}{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-indigo"><i class="fa-solid fa-user-graduate"></i></div>
+        <div><div class="fs-4 fw-bold">{{ student_count }}</div><small class="text-muted">Students</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-violet"><i class="fa-solid fa-chalkboard-user"></i></div>
+        <div><div class="fs-4 fw-bold">{{ teacher_count }}</div><small class="text-muted">Teachers</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-sky"><i class="fa-solid fa-book-open"></i></div>
+        <div><div class="fs-4 fw-bold">{{ course_count }}</div><small class="text-muted">Courses</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-amber"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div><div class="fs-4 fw-bold">{{ pending_results }}</div><small class="text-muted">Pending results</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-green"><i class="fa-solid fa-circle-check"></i></div>
+        <div><div class="fs-4 fw-bold">{{ published_results }}</div><small class="text-muted">Published results</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-2"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-{% if total_due > 0 %}rose{% else %}sky{% endif %}"><i class="fa-solid fa-coins"></i></div>
+        <div><div class="fs-4 fw-bold">৳{{ total_due|floatformat:0 }}</div><small class="text-muted">Student dues</small></div>
+    </div></div></div>
+</div>
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <a class="btn btn-primary" href="{% url 'accounts:dept_add_student' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Student</a>
+    <a class="btn btn-outline-success" href="{% url 'accounts:dept_import_students' %}"><i class="fa-solid fa-upload me-1"></i>Import CSV</a>
+    <a class="btn btn-outline-primary" href="{% url 'accounts:dept_add_teacher' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Teacher</a>
+    <a class="btn btn-outline-primary" href="{% url 'accounts:dept_add_course' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Course</a>
+    <a class="btn btn-outline-primary" href="{% url 'accounts:dept_results' %}"><i class="fa-solid fa-square-poll-vertical me-1"></i>Review &amp; Publish Results</a>
+    <a class="btn btn-outline-secondary" href="{% url 'accounts:dept_routine' %}"><i class="fa-solid fa-calendar-days me-1"></i>Class Routine</a>
+</div>
+
+{% if pending_courses %}
+<div class="card mb-3 border-warning">
+    <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
+        <span class="fw-semibold text-warning"><i class="fa-solid fa-hourglass-half me-2"></i>Awaiting your review:</span>
+        {% for c in pending_courses %}
+        <a class="badge text-bg-light border text-decoration-none p-2" href="{% url 'accounts:dept_results' %}">{{ c.code }} <span class="text-warning">({{ c.pending }} pending)</span></a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-user-graduate me-2 text-primary"></i>Recently added students</span>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:dept_students' %}">All students</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th class="ps-3">Reg No</th><th>Name</th><th>Semester</th><th class="pe-3 text-end">Session</th></tr></thead>
+                    <tbody>
+                    {% for s in recent_students %}
+                        <tr>
+                            <td class="ps-3 fw-semibold">{{ s.reg_no }}</td>
+                            <td>{{ s.user.get_full_name }}</td>
+                            <td>Semester {{ s.semester }}</td>
+                            <td class="pe-3 text-end">{{ s.session }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No students in this department yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="fa-solid fa-bullhorn me-2 text-warning"></i>Notices</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for n in notices %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-semibold">{{ n.title }}</span>
+                            <small class="text-muted">{{ n.created_at|date:"d M" }}</small>
+                        </div>
+                        <small class="text-muted">{{ n.body|truncatewords:16 }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted text-center py-4">No notices.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Semester Management — {{ dept.code }}{% endblock %}
+{% block page_heading %}Semester Management — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Promote student batches to the next semester{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-7">
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Semester</th><th class="text-center">Students</th><th class="text-end pe-3">Action</th>
+            </tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td class="ps-3 fw-semibold">Semester {{ row.semester }}</td>
+                    <td class="text-center"><span class="badge text-bg-light border">{{ row.count }}</span></td>
+                    <td class="text-end pe-3">
+                        {% if row.count > 0 and row.semester < 8 %}
+                        <form class="d-inline" method="post" action="{% url 'accounts:dept_promote_semester' %}"
+                              data-confirm="Promote all {{ row.count }} student(s) from Semester {{ row.semester }} to {{ row.semester|add:1 }}?">
+                            {% csrf_token %}
+                            <input type="hidden" name="from_semester" value="{{ row.semester }}">
+                            <button class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-circle-arrow-up me-1"></i>Promote all to Sem {{ row.semester|add:1 }}</button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="text-muted small mt-3 mb-0">
+    <i class="fa-solid fa-circle-info me-1"></i>Promotion moves every student of that semester upward (fee dues are recalculated automatically).
+    To change a single student's semester, use <em>Students → Edit</em>.
+</p>
+</div></div>
+{% endblock %}

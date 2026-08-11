@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Import Students — {{ dept.code }}{% endblock %}
+{% block page_heading %}Import Students — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Bulk-create students from a CSV file; department is always {{ dept.code }}{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-upload me-2 text-primary"></i>Upload CSV</div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-up me-1"></i>Import</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'accounts:dept_students' %}">Back to students</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header py-2">CSV format</div>
+            <div class="card-body">
+                <code class="small d-block">reg_no,first_name,last_name,semester,session</code>
+                <code class="small d-block text-muted">2025331601,Sadia,Rahman,1,2025-26</code>
+                <small class="text-muted d-block mt-2">
+                    Optional columns: email, phone, gender, guardian_name, guardian_phone, password
+                    (default password: <code>student123</code>).
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        {% if created %}
+        <div class="card mb-3 border-success">
+            <div class="card-header py-2 text-success"><i class="fa-solid fa-circle-check me-2"></i>{{ created|length }} imported</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                    {% for s in created %}
+                        <tr><td class="ps-3"><code>{{ s.reg_no }}</code></td><td>{{ s.user.get_full_name }}</td><td>Semester {{ s.semester }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if skipped %}
+        <div class="card border-warning">
+            <div class="card-header py-2 text-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>{{ skipped|length }} skipped</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th class="ps-3">CSV line</th><th>Reg No</th><th>Reason</th></tr></thead>
+                    <tbody>
+                    {% for line, reg, reason in skipped %}
+                        <tr><td class="ps-3">{{ line }}</td><td><code>{{ reg }}</code></td><td>{{ reason }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if not created and not skipped %}
+        <div class="card"><div class="card-body text-center text-muted py-5">
+            <i class="fa-solid fa-file-csv display-3 d-block mb-2"></i>Upload a CSV to see the import report here.
+        </div></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

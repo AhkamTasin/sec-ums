@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_heading %}{{ title }}{% endblock %}
+{% block page_subheading %}The course is always assigned to your own department{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-6">
+<div class="card"><div class="card-body p-4">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save Course</button>
+            <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+        </div>
+    </form>
+</div></div>
+</div></div>
+{% endblock %}

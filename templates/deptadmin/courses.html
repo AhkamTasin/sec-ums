@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Courses — {{ dept.code }}{% endblock %}
+{% block page_heading %}Courses — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Only courses of your own department are listed{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span>All courses</span>
+        <a class="btn btn-primary" href="{% url 'accounts:dept_add_course' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Course</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Code</th><th>Title</th><th class="text-center">Semester</th>
+                <th class="text-center">Credit</th><th>Teacher</th><th class="text-end pe-3"></th>
+            </tr></thead>
+            <tbody>
+            {% for c in courses %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ c.code }}</td>
+                    <td>{{ c.title }}</td>
+                    <td class="text-center"><span class="badge text-bg-light border">Sem {{ c.semester }}</span></td>
+                    <td class="text-center">{{ c.credit }}</td>
+                    <td>{{ c.teacher.user.get_full_name|default:"—" }}{% if c.teacher %} <small class="text-muted">({{ c.teacher.employee_id }})</small>{% endif %}</td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:dept_edit_course' c.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No courses yet — add the first one.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

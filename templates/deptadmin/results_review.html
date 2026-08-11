@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Review — {{ course.code }} {{ exam_label }}{% endblock %}
+{% block page_heading %}Review {{ exam_label }} Results — {{ course.code }}{% endblock %}
+{% block page_subheading %}{{ course.title }} · {{ dept.code }}, Semester {{ course.semester }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>
+            <strong>{{ submitted }}</strong> / {{ rows|length }} students have marks
+            {% if published %}<span class="badge text-bg-success ms-2">Published</span>{% endif %}
+        </span>
+        <div class="d-flex gap-2">
+            {% if submitted > 0 %}
+                {% if not published %}
+                <form method="post" action="{% url 'accounts:dept_results_publish' course.id exam_type 'publish' %}"
+                      data-confirm="Publish these {{ exam_label|lower }} results? Students will see them immediately and teachers can no longer edit.">
+                    {% csrf_token %}
+                    <button class="btn btn-success"><i class="fa-solid fa-upload me-1"></i>Publish Results</button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'accounts:dept_results_publish' course.id exam_type 'unpublish' %}"
+                      data-confirm="Unpublish? Students will no longer see these results and teachers can edit again.">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-danger"><i class="fa-solid fa-eye-slash me-1"></i>Unpublish</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <a class="btn btn-outline-secondary" href="{% url 'accounts:dept_results' %}">Back</a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3" style="width:60px;">#</th><th>Reg No</th><th>Student</th>
+                <th class="text-center">Marks (0–100)</th><th class="text-center">Grade</th><th class="text-center pe-3">Point</th>
+            </tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td class="ps-3 text-muted">{{ forloop.counter }}</td>
+                    <td class="fw-semibold">{{ row.student.reg_no }}</td>
+                    <td>{{ row.student.user.get_full_name }}</td>
+                    {% if row.result %}
+                    <td class="text-center fw-semibold">{{ row.result.marks|floatformat:1 }}</td>
+                    <td class="text-center">
+                        <span class="badge grade-badge text-bg-{% if row.result.grade == 'F' %}danger{% elif row.result.grade_point >= 3.5 %}success{% else %}primary{% endif %}">{{ row.result.grade }}</span>
+                    </td>
+                    <td class="text-center pe-3">{{ row.result.grade_point }}</td>
+                    {% else %}
+                    <td class="text-center text-muted" colspan="3"><em>marks not submitted</em></td>
+                    {% endif %}
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No students enrolled in Semester {{ course.semester }}.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

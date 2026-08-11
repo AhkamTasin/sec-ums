@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Students — {{ dept.code }}{% endblock %}
+{% block page_heading %}Students — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Only students of your own department are listed{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <form class="d-flex gap-2 flex-wrap" method="get">
+            <input class="form-control" style="max-width:200px;" type="search" name="q" value="{{ q }}" placeholder="Search name or reg no...">
+            <select name="sem" class="form-select" style="max-width:160px;">
+                <option value="">All semesters</option>
+                {% for s in semesters %}<option value="{{ s }}" {% if sem == s|stringformat:'i' %}selected{% endif %}>Semester {{ s }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-outline-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+        </form>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-success" href="{% url 'accounts:dept_import_students' %}" title="Import students from CSV"><i class="fa-solid fa-upload me-1"></i>Import</a>
+            <a class="btn btn-outline-secondary" href="{% url 'accounts:dept_export_students' %}?q={{ q }}&sem={{ sem }}" title="Download students as CSV"><i class="fa-solid fa-download me-1"></i>Export</a>
+            <a class="btn btn-primary" href="{% url 'accounts:dept_add_student' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Student</a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Reg No</th><th>Name</th><th>Semester</th>
+                <th>Session</th><th>Phone</th><th>Status</th><th class="text-end pe-3">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for s in students %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ s.reg_no }}</td>
+                    <td>
+                        <span class="avatar-initial me-2" style="width:30px;height:30px;font-size:.8rem;">{{ s.user.first_name|first|upper }}</span>
+                        {{ s.user.get_full_name }}
+                    </td>
+                    <td><span class="badge text-bg-light border">Semester {{ s.semester }}</span></td>
+                    <td>{{ s.session }}</td>
+                    <td>{{ s.user.phone|default:"—" }}</td>
+                    <td>
+                        {% if s.user.is_active %}<span class="badge text-bg-success">Active</span>
+                        {% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:dept_edit_student' s.pk %}" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>
+                        <form class="d-inline" method="post" action="{% url 'accounts:dept_delete_student' s.pk %}"
+                              data-confirm="Delete {{ s.user.get_full_name }} and ALL related records (results, payments, book issues)?">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No students found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white text-muted small">
+        {{ students|length }} student(s) shown
+    </div>
+</div>
+{% endblock %}

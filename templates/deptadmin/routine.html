@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Class Routine — {{ dept.code }}{% endblock %}
+{% block page_heading %}Class Routine — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Create and update class schedules for your department{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+<ul class="nav nav-pills mb-0">
+    <li class="nav-item"><a class="nav-link {% if not sem %}active{% endif %}" href="?">All semesters</a></li>
+    {% for s in semesters %}
+    <li class="nav-item"><a class="nav-link {% if sem == s %}active{% endif %}" href="?sem={{ s }}">Sem {{ s }}</a></li>
+    {% endfor %}
+</ul>
+<a class="btn btn-primary" href="{% url 'accounts:dept_add_routine' %}"><i class="fa-solid fa-circle-plus me-1"></i>Schedule Class</a>
+</div>
+<div class="row g-3">
+    {% for day, slots in grid %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span class="routine-day">{{ day }}</span>
+                <span class="badge text-bg-light border">{{ slots|length }}</span>
+            </div>
+            <div class="card-body">
+                {% for slot in slots %}
+                <div class="routine-slot d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ slot.course.code }}{% if not sem %} <small class="text-muted">(Sem {{ slot.semester }})</small>{% endif %}</strong>
+                        </div>
+                        <small class="text-muted">{{ slot.start_time|time:"h:i A" }} – {{ slot.end_time|time:"h:i A" }}</small>
+                        <div class="text-muted small">{{ slot.course.title }}</div>
+                        <div class="small mt-1">
+                            <i class="fa-solid fa-location-dot me-1"></i>Room {{ slot.room }}
+                            <span class="ms-2"><i class="fa-solid fa-user me-1"></i>{{ slot.teacher.user.get_full_name|default:"TBA" }}</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-1 ms-2 flex-shrink-0">
+                        <a class="btn btn-sm btn-link text-primary p-0" href="{% url 'accounts:dept_edit_routine' slot.pk %}" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>
+                        <form method="post" action="{% url 'accounts:dept_delete_routine' slot.pk %}" data-confirm="Remove this class slot?">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-link text-danger p-0" title="Delete"><i class="fa-solid fa-circle-xmark"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-muted small fst-italic">No classes scheduled.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

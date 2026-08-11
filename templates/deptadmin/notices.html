@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Notices — {{ dept.code }}{% endblock %}
+{% block page_heading %}Department Notices — {{ dept.name }}{% endblock %}
+{% block page_subheading %}Visible only inside your department{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span>Department notices</span>
+        <a class="btn btn-primary" href="{% url 'accounts:dept_add_notice' %}"><i class="fa-solid fa-circle-plus me-1"></i>Publish Notice</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+            {% for n in notices %}
+            <div class="list-group-item p-3 d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="fw-bold">{{ n.title }}
+                        <span class="badge text-bg-light border ms-1">{{ n.get_audience_display }}</span>
+                    </div>
+                    <small class="text-muted" style="white-space: pre-line;">{{ n.body|truncatewords:25 }}</small>
+                    <div><small class="text-muted"><i class="fa-solid fa-clock me-1"></i>{{ n.created_at|date:"d M Y, h:i A" }}{% if n.created_by %} · by {{ n.created_by.get_full_name }}{% endif %}</small></div>
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:dept_edit_notice' n.pk %}"><i class="fa-solid fa-pen-to-square"></i></a>
+                    <form method="post" action="{% url 'accounts:dept_delete_notice' n.pk %}" data-confirm="Delete this notice?">
+                        {% csrf_token %}
+                        <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-5 text-center text-muted"><i class="fa-solid fa-inbox display-4 d-block mb-2"></i>No department notices yet — publish the first one.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
