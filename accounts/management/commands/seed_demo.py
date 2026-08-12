@@ -1,0 +1,473 @@
+"""Seed the database with demo data: departments, users, courses, results,
+routines, fees, payments, books, issues and notices.
+
+Usage:  python manage.py seed_demo
+"""
+
+from datetime import date, time, timedelta
+
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from academics.models import (
+    Assessment,
+    AssessmentMark,
+    Attendance,
+    Course,
+    CourseMaterial,
+    Department,
+    InCourseMark,
+    Notice,
+    Result,
+    Routine,
+    compute_incourse,
+)
+from accounts.models import DepartmentAdmin, Student, Teacher, User
+from fees.models import FeeStructure, Payment
+from library.covers import attach_generated_cover
+from library.models import Book, BookIssue
+
+STUDENT_PASSWORD = "student123"
+TEACHER_PASSWORD = "teacher123"
+DEPT_ADMIN_PASSWORD = "deptadmin123"
+
+
+def marks_for(reg, course_index):
+    """Deterministic demo marks between 45 and 95."""
+    return 45 + (int(reg) + course_index * 7) % 51
+
+
+class Command(BaseCommand):
+    help = "Seed the database with demo data for the UMS."
+
+    def handle(self, *args, **options):
+        if Department.objects.exists():
+            self.stdout.write(self.style.WARNING("Data already exists — skipping seed."))
+            return
+
+        # ------------------------------------------------------------------
+        # Departments
+        # ------------------------------------------------------------------
+        cse = Department.objects.create(name="Computer Science & Engineering", code="CSE")
+        eee = Department.objects.create(name="Electrical & Electronic Engineering", code="EEE")
+        ce = Department.objects.create(name="Civil Engineering", code="CE")
+
+        # ------------------------------------------------------------------
+        # Staff login accounts
+        # ------------------------------------------------------------------
+        admin = User.objects.create_superuser(
+            username="admin", password="admin123",
+            first_name="System", last_name="Admin", role=User.Roles.SUPER_ADMIN,
+            email="admin@ums.edu",
+        )
+
+        # One Department Administrator per department (RBAC core rule)
+        def make_dept_admin(username, first, last, dept):
+            user = User.objects.create_user(
+                username=username, password=DEPT_ADMIN_PASSWORD,
+                first_name=first, last_name=last, role=User.Roles.DEPT_ADMIN,
+                phone="01711-500500",
+            )
+            return DepartmentAdmin.objects.create(user=user, department=dept)
+
+        da_cse = make_dept_admin("D-CSE1", "Aminul", "Haque", cse)
+        make_dept_admin("D-EEE1", "Nasrin", "Sultana", eee)
+        make_dept_admin("D-CE1", "Faisal", "Karim", ce)
+        cashier_user = User.objects.create_user(
+            username="C-1001", password="cashier123",
+            first_name="Kamrul", last_name="Hassan", role=User.Roles.CASHIER,
+            phone="01711-000003",
+        )
+        librarian_user = User.objects.create_user(
+            username="L-1001", password="library123",
+            first_name="Rokeya", last_name="Begum", role=User.Roles.LIBRARIAN,
+            phone="01711-000004",
+        )
+
+        # ------------------------------------------------------------------
+        # Teachers
+        # ------------------------------------------------------------------
+        def make_teacher(emp_id, first, last, dept, designation, qualification):
+            user = User.objects.create_user(
+                username=emp_id, password=TEACHER_PASSWORD,
+                first_name=first, last_name=last, role=User.Roles.TEACHER,
+                phone="01711-100100",
+            )
+            return Teacher.objects.create(
+                user=user, employee_id=emp_id, department=dept,
+                designation=designation, qualification=qualification,
+                joining_date=date(2020, 1, 5),
+            )
+
+        t1 = make_teacher("T-1001", "Dr. Rahim", "Uddin", cse, "PROFESSOR", "PhD in Computer Science")
+        t2 = make_teacher("T-1002", "Mahmudul", "Hasan", cse, "ASSISTANT_PROFESSOR", "M.Sc. in CSE")
+        t3 = make_teacher("T-1003", "Dr. Sharmin", "Akter", eee, "ASSOCIATE_PROFESSOR", "PhD in EEE")
+        t4 = make_teacher("T-1004", "Tanvir", "Hossain", ce, "LECTURER", "M.Sc. in Civil Eng.")
+
+        # ------------------------------------------------------------------
+        # Courses
+        # ------------------------------------------------------------------
+        def course(code, title, credit, dept, semester, teacher):
+            return Course.objects.create(
+                code=code, title=title, credit=credit,
+                department=dept, semester=semester, teacher=teacher,
+            )
+
+        cse_sem1 = [
+            course("CSE 1101", "Structured Programming", 4.0, cse, 1, t2),
+            course("CSE 1102", "Discrete Mathematics", 3.0, cse, 1, t1),
+            course("EEE 1101", "Basic Electrical Engineering", 3.0, cse, 1, t3),
+        ]
+        cse_sem2 = [
+            course("CSE 1201", "Object Oriented Programming", 4.0, cse, 2, t2),
+            course("CSE 1202", "Digital Logic Design", 3.0, cse, 2, t3),
+            course("MAT 1201", "Calculus & Linear Algebra", 3.0, cse, 2, t1),
+        ]
+        cse_sem3 = [
+            course("CSE 2101", "Data Structures", 4.0, cse, 3, t1),
+            course("CSE 2103", "Database Management Systems", 3.0, cse, 3, t2),
+            course("CSE 2105", "Computer Architecture", 3.0, cse, 3, t3),
+        ]
+        course("EEE 1201", "Circuit Analysis", 4.0, eee, 2, t3)
+        course("EEE 1203", "Electronics I", 3.0, eee, 2, t3)
+        course("CE 1101", "Engineering Drawing", 3.0, ce, 1, t4)
+        course("CE 1103", "Surveying", 3.0, ce, 1, t4)
+
+        # ------------------------------------------------------------------
+        # Students
+        # ------------------------------------------------------------------
+        def make_student(reg, first, last, gender, dept, semester, guardian):
+            user = User.objects.create_user(
+                username=reg, password=STUDENT_PASSWORD,
+                first_name=first, last_name=last, role=User.Roles.STUDENT,
+                phone="01722-200200",
+            )
+            return Student.objects.create(
+                user=user, reg_no=reg, department=dept, semester=semester,
+                session="2024-25", gender=gender, date_of_birth=date(2004, 5, 15),
+                guardian_name=guardian, guardian_phone="01733-300300",
+            )
+
+        s1 = make_student("2024331501", "Nafis", "Ahmed", "M", cse, 3, "Abdul Karim")
+        s2 = make_student("2024331502", "Ayesha", "Siddika", "F", cse, 3, "Md. Siddik")
+        s3 = make_student("2024331503", "Tanvir", "Rahman", "M", cse, 3, "Mizanur Rahman")
+        s4 = make_student("2024331504", "Farhana", "Akter", "F", cse, 3, "Akter Hossain")
+        s5 = make_student("2024331505", "Mehdi", "Hasan", "M", eee, 2, "Kamal Hasan")
+        s6 = make_student("2024331506", "Sultana", "Jahan", "F", eee, 2, "Jahan Alam")
+        s7 = make_student("2024331507", "Rakibul", "Islam", "M", ce, 1, "Sirajul Islam")
+        s8 = make_student("2024331508", "Mim", "Chowdhury", "F", ce, 1, "Chowdhury Saheb")
+
+        # ------------------------------------------------------------------
+        # Exam results (final for completed semesters, midterm for current)
+        # ------------------------------------------------------------------
+        cse_students = [s1, s2, s3, s4]
+        now = timezone.now()
+        for student in cse_students:
+            # Final results of completed semesters: already reviewed & published
+            # by the Department Administrator -> visible to students.
+            for i, c in enumerate(cse_sem1 + cse_sem2):
+                Result.objects.create(
+                    student=student, course=c, exam_type="FINAL",
+                    marks=marks_for(student.reg_no[-4:], i),
+                    is_published=True, published_at=now,
+                    published_by=da_cse.user,
+                )
+            # Current semester midterms: first course published, second still
+            # pending review -> demonstrates the publish workflow.
+            for i, c in enumerate(cse_sem3):
+                if i < 2:
+                    Result.objects.create(
+                        student=student, course=c, exam_type="MID",
+                        marks=marks_for(student.reg_no[-4:], i + 3),
+                        is_published=(i == 0),
+                        published_at=now if i == 0 else None,
+                        published_by=da_cse.user if i == 0 else None,
+                    )
+
+        # ------------------------------------------------------------------
+        # Class routines
+        # ------------------------------------------------------------------
+        def slot(dept, semester, c, teacher, day, start, end, room):
+            Routine.objects.create(
+                department=dept, semester=semester, course=c, teacher=teacher,
+                day=day, start_time=start, end_time=end, room=room,
+            )
+
+        slot(cse, 3, cse_sem3[0], t1, "Sunday", time(9, 0), time(10, 30), "301")
+        slot(cse, 3, cse_sem3[1], t2, "Sunday", time(11, 0), time(12, 30), "302")
+        slot(cse, 3, cse_sem3[2], t3, "Monday", time(9, 0), time(10, 30), "303")
+        slot(cse, 3, cse_sem3[0], t1, "Tuesday", time(9, 0), time(10, 30), "301")
+        slot(cse, 3, cse_sem3[1], t2, "Wednesday", time(11, 0), time(12, 30), "Lab-1")
+        slot(cse, 3, cse_sem3[2], t3, "Thursday", time(14, 0), time(15, 30), "303")
+        slot(eee, 2, Course.objects.get(code="EEE 1201"), t3, "Sunday", time(9, 0), time(10, 30), "E-201")
+        slot(eee, 2, Course.objects.get(code="EEE 1203"), t3, "Tuesday", time(11, 0), time(12, 30), "E-202")
+        slot(ce, 1, Course.objects.get(code="CE 1101"), t4, "Monday", time(10, 30), time(12, 0), "C-101")
+        slot(ce, 1, Course.objects.get(code="CE 1103"), t4, "Wednesday", time(9, 0), time(10, 30), "C-102")
+
+        # ------------------------------------------------------------------
+        # Fee structures
+        # ------------------------------------------------------------------
+        def fees(dept, semester, **kw):
+            for fee_type, amount in kw.items():
+                FeeStructure.objects.create(
+                    department=dept, semester=semester, fee_type=fee_type, amount=amount,
+                )
+
+        fees(cse, 1, ADMISSION=25000, TUITION=42000, LAB=3000, LIBRARY=1000, EXAM=1500)
+        fees(cse, 2, TUITION=42000, LAB=3000, LIBRARY=1000, EXAM=1500)
+        fees(cse, 3, TUITION=44000, LAB=3500, LIBRARY=1000, EXAM=1800)
+        fees(eee, 1, ADMISSION=25000, TUITION=40000, LAB=2800, LIBRARY=1000, EXAM=1500)
+        fees(eee, 2, TUITION=40000, LAB=2800, LIBRARY=1000, EXAM=1500)
+        fees(ce, 1, ADMISSION=25000, TUITION=38000, LAB=2500, LIBRARY=1000, EXAM=1500)
+
+        # ------------------------------------------------------------------
+        # Payments (spread over recent months so charts look alive)
+        # ------------------------------------------------------------------
+        def pay(student, fee_type, amount, y, m, d):
+            Payment.objects.create(
+                student=student, fee_type=fee_type, amount=amount,
+                method="CASH", payment_date=date(y, m, d), received_by=cashier_user,
+            )
+
+        # CSE sem-3 students: admission + tuition installments
+        pay(s1, "ADMISSION", 25000, 2026, 2, 10)
+        pay(s1, "TUITION", 42000, 2026, 3, 15)
+        pay(s1, "TUITION", 42000, 2026, 5, 12)
+        pay(s1, "TUITION", 22000, 2026, 7, 20)   # partial sem-3 payment -> due
+        pay(s2, "ADMISSION", 25000, 2026, 2, 11)
+        pay(s2, "TUITION", 42000, 2026, 3, 18)
+        pay(s2, "TUITION", 42000, 2026, 6, 9)
+        pay(s2, "TUITION", 44000, 2026, 8, 1)    # fully paid
+        pay(s3, "ADMISSION", 25000, 2026, 2, 12)
+        pay(s3, "TUITION", 42000, 2026, 4, 2)
+        pay(s3, "TUITION", 30000, 2026, 6, 25)   # partial -> due
+        pay(s4, "ADMISSION", 25000, 2026, 2, 15)
+        pay(s4, "TUITION", 42000, 2026, 3, 30)
+        pay(s4, "TUITION", 42000, 2026, 5, 28)
+        pay(s4, "TUITION", 44000, 2026, 8, 3)
+        # EEE sem-2
+        pay(s5, "ADMISSION", 25000, 2026, 3, 5)
+        pay(s5, "TUITION", 20000, 2026, 6, 14)   # partial -> due
+        pay(s6, "ADMISSION", 25000, 2026, 3, 8)
+        pay(s6, "TUITION", 40000, 2026, 7, 5)
+        # CE sem-1
+        pay(s7, "ADMISSION", 25000, 2026, 4, 1)
+        pay(s7, "TUITION", 15000, 2026, 7, 22)   # partial -> due
+        pay(s8, "ADMISSION", 25000, 2026, 4, 3)
+        pay(s8, "TUITION", 38000, 2026, 7, 28)   # paid tuition, still owes lab/library/exam
+
+        # ------------------------------------------------------------------
+        # Library books (covers are drawn locally with Pillow — no downloads)
+        # ------------------------------------------------------------------
+        def book(title, author, isbn, category, publisher, year, shelf, qty, description=""):
+            b = Book.objects.create(
+                title=title, author=author, isbn=isbn, category=category,
+                publisher=publisher, year=year, shelf=shelf, quantity=qty,
+                available=qty, description=description,
+            )
+            attach_generated_cover(b)
+
+        book("Database System Concepts", "Abraham Silberschatz", "9780078022159", "DATABASE", "McGraw-Hill", 2019, "DB-01", 4,
+             "The classic database textbook — covers relational models, SQL, normalization, transactions and recovery with clear examples.")
+        book("Introduction to Algorithms", "Thomas H. Cormen", "9780262033848", "PROGRAMMING", "MIT Press", 2009, "AL-02", 3,
+             "The standard algorithms reference (CLRS): sorting, graphs, dynamic programming, NP-completeness and more.")
+        book("Python Crash Course", "Eric Matthes", "9781593279288", "PROGRAMMING", "No Starch Press", 2019, "PR-01", 5,
+             "A hands-on, project-based introduction to programming in Python — from basics to web apps and data visualisation.")
+        book("Clean Code", "Robert C. Martin", "9780132350884", "PROGRAMMING", "Prentice Hall", 2008, "PR-02", 2,
+             "A handbook of agile software craftsmanship: naming, functions, formatting and refactoring for readable code.")
+        book("Computer Networks", "Andrew S. Tanenbaum", "9780132126953", "NETWORKING", "Pearson", 2010, "NW-01", 3,
+             "Layered network architectures, TCP/IP, routing and congestion — the standard networks text used worldwide.")
+        book("Operating System Concepts", "Abraham Silberschatz", "9781118063330", "ENGINEERING", "Wiley", 2012, "OS-01", 3,
+             "Processes, threads, memory management, file systems and security — the 'dinosaur book' of operating systems.")
+        book("Advanced Engineering Mathematics", "Erwin Kreyszig", "9780470458365", "MATHEMATICS", "Wiley", 2011, "MT-01", 4,
+             "Comprehensive engineering mathematics: ODEs, linear algebra, vector calculus, Fourier analysis and PDEs.")
+        book("Digital Design", "M. Morris Mano", "9780132774208", "ELECTRONICS", "Pearson", 2012, "EL-01", 2,
+             "Logic gates, combinational and sequential circuits, registers, counters and HDL-based digital design.")
+        book("Data Structures and Algorithms in C++", "Michael T. Goodrich", "9780470383278", "PROGRAMMING", "Wiley", 2011, "DS-01", 3,
+             "Arrays, linked lists, trees, heaps, hash tables and graphs with analysis — taught through modern C++.")
+        book("Discrete Mathematics and Its Applications", "Kenneth Rosen", "9780073383095", "MATHEMATICS", "McGraw-Hill", 2011, "MT-02", 3,
+             "Logic, sets, combinatorics, graph theory and number theory — the foundation maths course for CSE.")
+        book("Fundamentals of Electric Circuits", "Charles Alexander", "9780073380575", "ELECTRONICS", "McGraw-Hill", 2012, "EL-02", 2,
+             "Circuit laws, theorems, AC analysis and frequency response with hundreds of solved practice problems.")
+        book("Engineering Mechanics: Statics", "R.C. Hibbeler", "9780133918922", "ENGINEERING", "Pearson", 2015, "CE-01", 2,
+             "Force systems, equilibrium, structures, friction and centroids — the essential statics text for civil engineers.")
+
+        # ------------------------------------------------------------------
+        # Book issues
+        # ------------------------------------------------------------------
+        today = date.today()
+        db_book = Book.objects.get(isbn="9780078022159")
+        clean_code = Book.objects.get(isbn="9780132350884")
+        algorithms = Book.objects.get(isbn="9780262033848")
+        python_cc = Book.objects.get(isbn="9781593279288")
+
+        # 1. Overdue issue (Nafis)
+        i = BookIssue.objects.create(
+            book=db_book, student=s1, issued_by=librarian_user,
+            issue_date=today - timedelta(days=20), due_date=today - timedelta(days=6),
+        )
+        db_book.available -= 1
+        db_book.save()
+
+        # 2. Active issue (Ayesha)
+        BookIssue.objects.create(
+            book=algorithms, student=s2, issued_by=librarian_user,
+            issue_date=today - timedelta(days=4), due_date=today + timedelta(days=10),
+        )
+        algorithms.available -= 1
+        algorithms.save()
+
+        # 3. Returned late with a fine (Tanvir)
+        late = BookIssue.objects.create(
+            book=clean_code, student=s3, issued_by=librarian_user,
+            issue_date=today - timedelta(days=30), due_date=today - timedelta(days=16),
+        )
+        late.return_date = today - timedelta(days=13)  # 3 days late
+        late.status = "RETURNED"
+        late.fine = 3 * 5
+        late.save()
+
+        # 4. Active issue (Mehdi)
+        BookIssue.objects.create(
+            book=python_cc, student=s5, issued_by=librarian_user,
+            issue_date=today - timedelta(days=9), due_date=today + timedelta(days=5),
+        )
+        python_cc.available -= 1
+        python_cc.save()
+
+        # ------------------------------------------------------------------
+        # Payments with demo statuses (today's collection / pending / cancelled)
+        # ------------------------------------------------------------------
+        Payment.objects.create(
+            student=s2, fee_type="LAB", amount=3500, method="CASH",
+            payment_date=today, received_by=cashier_user,
+            note="Semester 3 lab fee",
+        )
+        Payment.objects.create(
+            student=s6, fee_type="EXAM", amount=1500, method="MOBILE",
+            payment_date=today, received_by=cashier_user,
+            note="bKash — mid-semester exam fee",
+        )
+        # A bank slip the cashier has not verified yet -> PENDING
+        Payment.objects.create(
+            student=s3, fee_type="TUITION", amount=14000, method="BANK",
+            status="PENDING", payment_date=today, received_by=cashier_user,
+            note="DBBL deposit slip #D-44102 — awaiting verification",
+        )
+        # A duplicate entry that was voided -> CANCELLED (ignored in accounts)
+        Payment.objects.create(
+            student=s8, fee_type="LAB", amount=2500, method="CARD",
+            status="CANCELLED", payment_date=today - timedelta(days=2),
+            received_by=cashier_user,
+            note="Duplicate card swipe — voided",
+        )
+
+        # ------------------------------------------------------------------
+        # Notices
+        # ------------------------------------------------------------------
+        Notice.objects.create(
+            title="Midterm Examination Routine — Fall 2026",
+            body="The midterm examinations for all departments will begin from 20 August 2026. Students are advised to collect their admit cards from the department office before 17 August 2026.",
+            audience="ALL", created_by=admin,
+        )
+        Notice.objects.create(
+            title="Semester Fee Payment Deadline",
+            body="All students must clear at least 60% of their current semester fees by 25 August 2026. Late payments will incur a fine of ৳500.",
+            audience="STUDENT", created_by=admin,
+        )
+        Notice.objects.create(
+            title="Result Submission Deadline (Teachers)",
+            body="All course teachers are requested to submit midterm marks through the UMS by 30 August 2026.",
+            audience="TEACHER", created_by=admin,
+        )
+        Notice.objects.create(
+            title="New Books Added to the Library",
+            body="12 new titles on databases, algorithms and electronics are now available in the central library. Students may borrow up to 3 books at a time.",
+            audience="ALL", created_by=admin,
+        )
+        Notice.objects.create(
+            title="Library Inventory Reminder",
+            body="Please ensure all overdue books are reported to the accounts office so fines can be collected before issuing new books.",
+            audience="LIBRARIAN", created_by=admin,
+        )
+        # Department-scoped notice (visible only inside CSE)
+        Notice.objects.create(
+            title="CSE Semester 3 — Midterm Syllabus Announced",
+            body="The midterm syllabus for CSE 2101 and CSE 2103 has been finalized. Please contact your course teachers for the chapter list.",
+            audience="STUDENT", department=cse, created_by=da_cse.user,
+        )
+
+        # ------------------------------------------------------------------
+        # Teacher coursework: assessments, attendance, materials, in-course
+        # ------------------------------------------------------------------
+        ds_course = cse_sem3[0]   # CSE 2101 (teacher t1) — fully seeded
+        db_course = cse_sem3[1]   # CSE 2103 (teacher t2) — partially seeded (demo work)
+
+        def assess(course, kind, title, max_marks, due=None, description=""):
+            return Assessment.objects.create(
+                course=course, kind=kind, title=title, max_marks=max_marks,
+                due_date=due, description=description,
+            )
+
+        # CSE 2101: 2 quizzes + 1 assignment + 1 lab, all marked
+        today = date.today()
+        a_q1 = assess(ds_course, "QUIZ", "Quiz 1 — Arrays & Linked Lists", 10, today - timedelta(days=14))
+        a_q2 = assess(ds_course, "QUIZ", "Quiz 2 — Stacks & Queues", 10, today - timedelta(days=7))
+        a_as1 = assess(ds_course, "ASSIGNMENT", "Assignment 1 — Implement a Binary Tree", 10, today + timedelta(days=6), "Submit source code and output screenshots")
+        a_lab = assess(ds_course, "LAB", "Lab Test 1 — Tree Traversals", 10, today - timedelta(days=3))
+        # CSE 2103: quiz marked, assignment upcoming (unmarked) -> demo pending
+        b_q1 = assess(db_course, "QUIZ", "Quiz 1 — ER Modelling", 10, today - timedelta(days=10))
+        b_as1 = assess(db_course, "ASSIGNMENT", "Assignment 1 — Design a Library Schema", 10, today + timedelta(days=9), "ER diagram + normalized schema")
+        b_q2 = assess(db_course, "QUIZ", "Quiz 2 — Normalization", 10, today + timedelta(days=12))
+
+        import random
+        random.seed(42)
+        for s in cse_students:
+            base = 6 + (int(s.reg_no[-2:]) % 5)  # 6..10 deterministic-ish
+            for a in (a_q1, a_q2, a_as1, a_lab, b_q1):
+                AssessmentMark.objects.create(
+                    assessment=a, student=s, marks=min(10, base + random.randint(-1, 1))
+                )
+
+        # Attendance: seed past 2 weeks for the two CSE sem-3 courses
+        for i, c in enumerate([ds_course, db_course]):
+            for day_offset in range(12, 0, -3):
+                d = today - timedelta(days=day_offset)
+                for s in cse_students:
+                    status = "PRESENT"
+                    if (int(s.reg_no[-2:]) + day_offset + i) % 11 == 0:
+                        status = "ABSENT"
+                    elif (int(s.reg_no[-2:]) + day_offset + i) % 7 == 0:
+                        status = "LATE"
+                    Attendance.objects.create(course=c, student=s, date=d, status=status)
+
+        # Course material for CSE 2101
+        from django.core.files.base import ContentFile
+        mat = CourseMaterial.objects.create(
+            course=ds_course, title="Week 5 — Trees (Lecture Slides)",
+            description="Binary trees, traversals, AVL rotations",
+            uploaded_by=t1.user,
+        )
+        mat.file.save(
+            "cse2101-week5-trees.txt",
+            ContentFile(
+                b"CSE 2101 Data Structures - Week 5 Lecture Notes\n"
+                b"Topics: Binary Trees, BST operations, AVL rotations.\n"
+                b"(Demo material file generated by seed_demo)\n"
+            ),
+        )
+
+        # Submit in-course marks for CSE 2101 (visible to students); leave
+        # CSE 2103 unsubmitted for the teacher to demo with.
+        for s in cse_students:
+            calc = compute_incourse(ds_course, s)
+            InCourseMark.objects.create(
+                course=ds_course, student=s, **calc,
+                submitted_by=t1.user, submitted_at=now,
+            )
+
+        self.stdout.write(self.style.SUCCESS("Demo data seeded successfully."))
+        self.stdout.write(
+            "Logins:  admin/admin123 (Super Admin) · D-CSE1/deptadmin123 (Dept Admin) · "
+            "T-1001/teacher123 · 2024331501/student123 · L-1001/library123 · C-1001/cashier123"
+        )

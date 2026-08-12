@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block page_heading %}My Profile{% endblock %}
+{% block page_subheading %}Academic details are managed by your department — you can update contact info{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body text-center p-4">
+                <span class="avatar-initial mx-auto" style="width:84px;height:84px;font-size:2rem;">{{ student.user.first_name|first|upper }}{{ student.user.last_name|first|upper }}</span>
+                <h5 class="fw-bold mt-3 mb-0">{{ student.user.get_full_name }}</h5>
+                <span class="badge text-bg-primary mt-1">{{ student.reg_no }}</span>
+            </div>
+            <div class="card-body border-top">
+                <table class="table table-borderless small mb-0">
+                    <tr><td class="text-muted" style="width:130px;">Department</td><td class="fw-semibold">{{ student.department.name }}</td></tr>
+                    <tr><td class="text-muted">Semester</td><td>Semester {{ student.semester }} · Session {{ student.session }}</td></tr>
+                    <tr><td class="text-muted">Gender</td><td>{{ student.get_gender_display }}</td></tr>
+                    <tr><td class="text-muted">Date of Birth</td><td>{{ student.date_of_birth|date:"d M Y"|default:"—" }}</td></tr>
+                    <tr><td class="text-muted">Admitted</td><td>{{ student.admission_date|date:"d M Y" }}</td></tr>
+                    <tr><td class="text-muted">Username</td><td><code>{{ student.user.username }}</code></td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-pen-to-square me-2 text-primary"></i>Editable Information</div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        {% for field in form %}
+                        <div class="col-md-{% if field.name == 'address' %}12{% else %}6{% endif %}">
+                            <label class="form-label fw-semibold">{{ field.label }}</label>
+                            {{ field }}
+                            {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button class="btn btn-primary mt-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

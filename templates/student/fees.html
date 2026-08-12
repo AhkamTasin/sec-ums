@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Fees &amp; Payments{% endblock %}
+{% block page_heading %}Fees &amp; Payments{% endblock %}
+{% block page_subheading %}Your fee account up to Semester {{ student.semester }}{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center">
+        <small class="text-muted text-uppercase fw-semibold">Total Payable</small>
+        <div class="fs-3 fw-bold">৳{{ payable|floatformat:0 }}</div>
+    </div></div></div>
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center">
+        <small class="text-muted text-uppercase fw-semibold">Total Paid</small>
+        <div class="fs-3 fw-bold text-success">৳{{ paid|floatformat:0 }}</div>
+    </div></div></div>
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center">
+        <small class="text-muted text-uppercase fw-semibold">Due</small>
+        <div class="fs-3 fw-bold {% if due > 0 %}text-danger{% else %}text-success{% endif %}">৳{{ due|floatformat:0 }}</div>
+        {% if due <= 0 %}<small class="badge text-bg-success">All clear!</small>{% endif %}
+    </div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-file-invoice-dollar me-2 text-primary"></i>Applicable Fee Structure</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th class="ps-3">Semester</th><th>Fee Type</th><th class="text-end pe-3">Amount</th></tr></thead>
+                    <tbody>
+                    {% for f in structures %}
+                        <tr>
+                            <td class="ps-3">Semester {{ f.semester }}</td>
+                            <td>{{ f.get_fee_type_display }}</td>
+                            <td class="text-end pe-3">৳{{ f.amount|floatformat:0 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-4">No fee structure defined yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-receipt me-2 text-success"></i>Payment History</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th class="ps-3">Receipt</th><th>Date</th><th>Type</th><th class="text-end pe-3">Amount</th></tr></thead>
+                    <tbody>
+                    {% for p in payments %}
+                        <tr>
+                            <td class="ps-3"><code>{{ p.receipt_no }}</code><br>
+                                {% if p.status == "CONFIRMED" %}<span class="badge text-bg-success mt-1">Confirmed</span>
+                                {% elif p.status == "PENDING" %}<span class="badge text-bg-warning mt-1">Pending verification</span>
+                                {% else %}<span class="badge text-bg-danger mt-1">Cancelled</span>{% endif %}
+                            </td>
+                            <td>{{ p.payment_date|date:"d M Y" }}</td>
+                            <td>{{ p.get_fee_type_display }}</td>
+                            <td class="text-end pe-3 fw-semibold text-success">৳{{ p.amount|floatformat:0 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No payments yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

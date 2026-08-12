@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block page_heading %}Welcome, {{ student.user.first_name }}!{% endblock %}
+{% block page_subheading %}{{ student.department.name }} — Semester {{ student.semester }} (Session {{ student.session }}){% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-indigo"><i class="fa-solid fa-award"></i></div>
+        <div><div class="fs-4 fw-bold">{{ cgpa|default:"—" }}</div><small class="text-muted">GPA / CGPA</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-{% if att_pct >= 75 %}green{% elif att_pct >= 60 %}amber{% else %}rose{% endif %}"><i class="fa-solid fa-user-check"></i></div>
+        <div><div class="fs-4 fw-bold">{% if att_pct is not None %}{{ att_pct }}%{% else %}—{% endif %}</div><small class="text-muted">Attendance</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-{% if due > 0 %}rose{% else %}green{% endif %}"><i class="fa-solid fa-coins"></i></div>
+        <div><div class="fs-4 fw-bold">৳{{ due|floatformat:0 }}</div><small class="text-muted">Fee due</small></div>
+    </div></div></div>
+    <div class="col-6 col-xl-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+        <div class="icon-blob blob-sky"><i class="fa-solid fa-calendar-day"></i></div>
+        <div><div class="fs-4 fw-bold">{{ today_classes|length }}</div><small class="text-muted">Classes today</small></div>
+    </div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="fa-solid fa-calendar-day me-2 text-primary"></i>Today's Classes</div>
+            <div class="card-body">
+                {% for slot in today_classes %}
+                <div class="routine-slot d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ slot.course.code }}</strong> — {{ slot.course.title }}
+                        <div class="text-muted small">{{ slot.start_time|time:"h:i A" }} – {{ slot.end_time|time:"h:i A" }} · Room {{ slot.room }}</div>
+                    </div>
+                    <span class="badge text-bg-light border">{{ slot.teacher.user.get_full_name|default:"TBA" }}</span>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4"><i class="fa-solid fa-face-smile display-5 d-block mb-2"></i>No classes today. Enjoy!</div>
+                {% endfor %}
+                <div class="d-flex gap-3 mt-3 pt-2 border-top small text-muted">
+                    <span><i class="fa-solid fa-book-open me-1"></i>{{ books_issued }} library book{{ books_issued|pluralize }} issued</span>
+                    <a href="{% url 'academics:student_incourse' %}" class="text-decoration-none"><i class="fa-solid fa-arrow-trend-up me-1"></i>In-course marks</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="fa-solid fa-bell me-2 text-danger"></i>Upcoming Exams &amp; Deadlines</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for a in upcoming %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge text-bg-{% if a.kind == 'QUIZ' %}primary{% elif a.kind == 'ASSIGNMENT' %}success{% else %}warning{% endif %} me-1">{{ a.get_kind_display }}</span>
+                            <strong>{{ a.course.code }}</strong>
+                            <div class="small text-muted">{{ a.title }}</div>
+                        </div>
+                        <span class="badge text-bg-danger rounded-pill">{{ a.due_date|date:"d M" }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-4">Nothing upcoming — you're all caught up!</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="fa-solid fa-bullhorn me-2 text-warning"></i>Recent Notices</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for n in notices %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-semibold small">{{ n.title }}</span>
+                            <small class="text-muted">{{ n.created_at|date:"d M" }}</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted text-center py-4">No notices.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'academics:notices' %}">View all</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
