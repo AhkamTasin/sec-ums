@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_heading %}{{ title }}{% endblock %}
+{% block page_subheading %}Catalogue details and cover image{% endblock %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card"><div class="card-body p-4">
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% for e in form.title.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">{{ form.category.label }}</label>
+                        {{ form.category }}
+                        {% for e in form.category.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">{{ form.author.label }}</label>
+                        {{ form.author }}
+                        {% for e in form.author.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">{{ form.isbn.label }}</label>
+                        {{ form.isbn }}
+                        {% for e in form.isbn.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">{{ form.publisher.label }}</label>
+                        {{ form.publisher }}
+                        {% for e in form.publisher.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">{{ form.year.label }}</label>
+                        {{ form.year }}
+                        {% for e in form.year.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">{{ form.shelf.label }}</label>
+                        {{ form.shelf }}
+                        {% for e in form.shelf.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">{{ form.quantity.label }}</label>
+                        {{ form.quantity }}
+                        {% for e in form.quantity.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        {% if book %}<small class="text-muted">{{ book.available }} currently available</small>{% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">{{ form.description.label }} <small class="text-muted fw-normal">(optional — shown on the details page)</small></label>
+                        {{ form.description }}
+                        {% for e in form.description.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">{{ form.cover.label }} <small class="text-muted fw-normal">(optional)</small></label>
+                        {{ form.cover }}
+                        <small class="text-muted">{{ form.cover.help_text }}</small>
+                        {% for e in form.cover.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save Book</button>
+                    <a class="btn btn-outline-secondary" href="{% if book %}{% url 'library:book_detail' book.pk %}{% else %}{% url 'library:book_list' %}{% endif %}">Cancel</a>
+                </div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-body p-4 text-center">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size:.7rem; letter-spacing:1px;">Cover preview</small>
+            <div class="book-detail-cover mt-2 mx-auto" style="max-width: 220px;" id="coverPreviewBox">
+                {% if book and book.cover %}
+                    <img src="{{ book.cover.url }}" id="coverPreview" alt="Current cover">
+                {% else %}
+                    <div class="cover-placeholder book-detail-cover cover-{{ book.category|default:'OTHER' }}" id="coverPlaceholder">
+                        <i class="fa-solid fa-image cover-icon"></i>
+                        <div class="cp-title small">No cover uploaded</div>
+                    </div>
+                    <img src="" id="coverPreview" alt="New cover preview" class="d-none">
+                {% endif %}
+            </div>
+            <small class="text-muted d-block mt-2">Choose an image file — it appears on the catalogue card and details page.</small>
+        </div></div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// Live preview of the chosen cover image before saving
+document.getElementById("id_cover").addEventListener("change", function () {
+    const file = this.files && this.files[0];
+    const img = document.getElementById("coverPreview");
+    const ph = document.getElementById("coverPlaceholder");
+    if (file && img) {
+        img.src = URL.createObjectURL(file);
+        img.classList.remove("d-none");
+        if (ph) ph.classList.add("d-none");
+    }
+});
+</script>
+{% endblock %}

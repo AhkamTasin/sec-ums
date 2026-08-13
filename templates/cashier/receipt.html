@@ -1,0 +1,135 @@
+{% extends "print_base.html" %}
+{% load static %}
+{% block title %}Receipt {{ payment.receipt_no }}{% endblock %}
+{% block content %}
+<div class="receipt-sheet">
+    {# ---------- branded letterhead ---------- #}
+    <div class="receipt-head">
+        <div class="receipt-band">
+            <div class="d-flex align-items-center gap-3">
+                <img src="{% static 'img/logo.png' %}" alt="SEC logo" style="width: 56px; height: 56px;" class="bg-white rounded-circle p-1 shadow">
+                <div>
+                    <div class="fw-bold fs-5" style="font-family:'Plus Jakarta Sans',sans-serif;">SYLHET ENGINEERING COLLEGE</div>
+                    <small style="color:#d8bcc8; letter-spacing:2px; text-transform:uppercase; font-size:.66rem;">
+                        University Management System · Office of the Cashier
+                    </small>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="small" style="color:#d8bcc8;">Official Payment Receipt</div>
+                <div class="fw-bold fs-5"><code style="color:#fff;">{{ payment.receipt_no }}</code></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-4">
+        {# ---------- meta strip ---------- #}
+        <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+            <div>
+                <small class="text-muted d-block">Payment date</small>
+                <span class="fw-bold">{{ payment.payment_date|date:"l, d F Y" }}</span>
+            </div>
+            <div>
+                <small class="text-muted d-block">Payment method</small>
+                <span class="fw-bold"><i class="fa-solid fa-credit-card me-1"></i>{{ payment.get_method_display }}</span>
+            </div>
+            <div class="text-end">
+                {% if payment.status == "CONFIRMED" %}
+                    <span class="receipt-status-stamp stamp-confirmed">PAID</span>
+                {% elif payment.status == "PENDING" %}
+                    <span class="receipt-status-stamp stamp-pending">PENDING</span>
+                {% else %}
+                    <span class="receipt-status-stamp stamp-cancelled">CANCELLED</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ---------- payer ---------- #}
+        <div class="border rounded p-3 mb-3" style="background:#f8f9fd;">
+            <div class="row g-2 small">
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Received from</small>
+                    <span class="fw-bold fs-6">{{ payment.student.user.get_full_name }}</span>
+                </div>
+                <div class="col-6 col-md-3">
+                    <small class="text-muted d-block">Registration No</small>
+                    <span class="fw-semibold">{{ payment.student.reg_no }}</span>
+                </div>
+                <div class="col-6 col-md-3">
+                    <small class="text-muted d-block">Department</small>
+                    <span class="fw-semibold">{{ payment.student.department.code }} · Semester {{ payment.student.semester }}</span>
+                </div>
+            </div>
+        </div>
+
+        {# ---------- line items ---------- #}
+        <table class="table table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:56px;" class="text-center">#</th>
+                    <th>Description</th>
+                    <th class="text-end" style="width:170px;">Amount (BDT)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-center text-muted">1</td>
+                    <td>
+                        <span class="fw-semibold">{{ payment.get_fee_type_display }}</span>
+                        {% if payment.note %}<br><small class="text-muted">{{ payment.note }}</small>{% endif %}
+                    </td>
+                    <td class="text-end fw-bold">৳{{ payment.amount|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <th colspan="2" class="text-end">Total Received</th>
+                    <th class="text-end fs-6">৳{{ payment.amount|floatformat:2 }}</th>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="small mb-3"><strong>In words:</strong> {{ words }}.</div>
+
+        {# ---------- account snapshot ---------- #}
+        <div class="row g-2 mb-4">
+            <div class="col-4"><div class="border rounded text-center py-2">
+                <small class="text-muted d-block">Total Payable</small><span class="fw-bold">৳{{ payable|floatformat:0 }}</span>
+            </div></div>
+            <div class="col-4"><div class="border rounded text-center py-2">
+                <small class="text-muted d-block">Total Paid</small><span class="fw-bold text-success">৳{{ paid|floatformat:0 }}</span>
+            </div></div>
+            <div class="col-4"><div class="border rounded text-center py-2 {% if remaining_due > 0 %}border-danger{% else %}border-success{% endif %}">
+                <small class="text-muted d-block">Remaining Due</small>
+                <span class="fw-bold {% if remaining_due > 0 %}text-danger{% else %}text-success{% endif %}">
+                    {% if remaining_due > 0 %}৳{{ remaining_due|floatformat:0 }}{% else %}CLEARED{% endif %}
+                </span>
+            </div></div>
+        </div>
+
+        {# ---------- signatures ---------- #}
+        <div class="d-flex justify-content-between align-items-end mt-5 pt-3">
+            <div>
+                <div class="receipt-barcode" style="width: 240px;"></div>
+                <small class="text-muted" style="letter-spacing: 3px;">{{ payment.receipt_no }}</small>
+            </div>
+            <div class="text-end">
+                <div style="min-width: 220px; border-top: 1px solid #333; padding-top: 5px;" class="fw-semibold">
+                    {{ payment.received_by.get_full_name|default:"—" }}
+                </div>
+                <small class="text-muted">Authorized Signature (Cashier)</small>
+            </div>
+        </div>
+
+        <div class="doc-foot">
+            <span><i class="fa-solid fa-shield-halved me-1"></i>Generated electronically — verify at the accounts office.</span>
+            <span>© {% now "Y" %} Sylhet Engineering College · University Management System</span>
+        </div>
+    </div>
+</div>
+
+{# screen-only quick actions #}
+<div class="no-print d-flex justify-content-center gap-2 mt-3">
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'fees:payment_edit' payment.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Update this Payment</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'fees:payment_list' %}"><i class="fa-solid fa-list me-1"></i>Payment History</a>
+</div>
+{% endblock %}

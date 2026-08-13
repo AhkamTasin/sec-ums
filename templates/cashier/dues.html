@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Dues &amp; Bills{% endblock %}
+{% block page_heading %}Dues &amp; Bills{% endblock %}
+{% block page_subheading %}Students with outstanding fees — open a bill or record a payment{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span>{% if show_all %}All student accounts{% else %}Students with dues{% endif %}</span>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'fees:dues_list' %}{% if show_all %}{% else %}?all=1{% endif %}">
+            {% if show_all %}Show dues only{% else %}Show all students{% endif %}
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Reg No</th><th>Student</th><th>Department</th>
+                <th class="text-end">Payable</th><th class="text-end">Paid</th>
+                <th class="text-end">Due</th><th class="text-end pe-3">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr class="{% if row.due > 0 %}table-danger{% endif %}">
+                    <td class="ps-3 fw-semibold">{{ row.student.reg_no }}</td>
+                    <td>{{ row.student.user.get_full_name }}</td>
+                    <td><span class="badge text-bg-light border">{{ row.student.department.code }} Sem {{ row.student.semester }}</span></td>
+                    <td class="text-end">৳{{ row.payable|floatformat:0 }}</td>
+                    <td class="text-end text-success">৳{{ row.paid|floatformat:0 }}</td>
+                    <td class="text-end fw-bold {% if row.due > 0 %}text-danger{% else %}text-success{% endif %}">৳{{ row.due|floatformat:0 }}</td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'fees:student_statement' row.student.id %}" title="Generate bill"><i class="fa-solid fa-file-lines"></i></a>
+                        <a class="btn btn-sm btn-primary" href="{% url 'fees:payment_record' %}?student={{ row.student.id }}" title="Record payment"><i class="fa-solid fa-money-bill-wave"></i></a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4"><i class="fa-solid fa-face-smile d-block display-5 mb-2"></i>No dues — every account is clear!</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

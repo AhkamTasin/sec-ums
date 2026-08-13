@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Circulation{% endblock %}
+{% block page_heading %}Issued Books, Returns &amp; History{% endblock %}
+{% block page_subheading %}Late returns are fined ৳5 per day{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <ul class="nav nav-pills">
+        <li class="nav-item"><a class="nav-link {% if status == 'ISSUED' %}active{% endif %}" href="?status=ISSUED">Currently issued</a></li>
+        <li class="nav-item"><a class="nav-link {% if status == 'OVERDUE' %}active{% endif %}" href="?status=OVERDUE">Overdue</a></li>
+        <li class="nav-item"><a class="nav-link {% if status == 'RETURNED' %}active{% endif %}" href="?status=RETURNED">Returned</a></li>
+        <li class="nav-item"><a class="nav-link {% if status == 'ALL' %}active{% endif %}" href="?status=ALL"><i class="fa-solid fa-clock-rotate-left me-1"></i>Borrow history</a></li>
+    </ul>
+    <form class="d-flex gap-2" method="get">
+        <input type="hidden" name="status" value="{{ status }}">
+        <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Book, ISBN, student or reg no..." style="max-width: 260px;">
+        <button class="btn btn-outline-primary"><i class="fa-solid fa-magnifying-glass"></i></button>
+        {% if q %}<a class="btn btn-outline-secondary" href="?status={{ status }}"><i class="fa-solid fa-xmark"></i></a>{% endif %}
+    </form>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Book</th><th>Student</th><th>Issued</th><th>Due</th>
+                <th>Status</th><th class="text-end">Fine</th><th class="pe-3"></th>
+            </tr></thead>
+            <tbody>
+            {% for i in issues %}
+                <tr class="{% if i.is_overdue %}table-danger{% endif %}">
+                    <td class="ps-3 fw-semibold"><a href="{% url 'library:book_detail' i.book.pk %}" class="text-decoration-none">{{ i.book.title }}</a></td>
+                    <td>{{ i.student.user.get_full_name }} <small class="text-muted">({{ i.student.reg_no }})</small></td>
+                    <td>{{ i.issue_date|date:"d M Y" }}</td>
+                    <td>{{ i.due_date|date:"d M Y" }}</td>
+                    <td>
+                        {% if i.status == "RETURNED" %}
+                            <span class="badge text-bg-success">Returned {{ i.return_date|date:"d M Y" }}</span>
+                        {% elif i.is_overdue %}
+                            <span class="badge text-bg-danger">Overdue {{ i.overdue_days }}d</span>
+                        {% else %}
+                            <span class="badge text-bg-warning">Issued</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">{% if i.fine > 0 %}<span class="text-danger fw-semibold">৳{{ i.fine|floatformat:0 }}</span>{% else %}—{% endif %}</td>
+                    <td class="text-end pe-3">
+                        {% if i.status == "ISSUED" %}
+                        <form method="post" action="{% url 'library:return_book' i.pk %}" data-confirm="Mark this book as returned?">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-success"><i class="fa-solid fa-arrow-rotate-left me-1"></i>Receive Return</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4"><i class="fa-solid fa-inbox display-5 d-block mb-2"></i>Nothing here.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

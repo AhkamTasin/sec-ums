@@ -1,0 +1,26 @@
+{# Notifications feed for dashboards — expects `notices` in context #}
+<div class="card h-100">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-bullhorn me-2" style="color: var(--brand-600);"></i>Notifications</span>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'academics:notices' %}">View all</a>
+    </div>
+    <div class="card-body p-0" style="max-height: 430px; overflow-y: auto;">
+        {% for n in notices %}
+        <div class="notice-item">
+            <div class="notice-date">
+                <span class="nd-day">{{ n.created_at|date:"d" }}</span>
+                <span class="nd-mon">{{ n.created_at|date:"M" }}</span>
+            </div>
+            <div style="min-width: 0;">
+                <div class="fw-semibold small">{{ n.title }}</div>
+                <p class="text-muted small mb-0">{{ n.body|truncatewords:16 }}</p>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state py-4">
+            <div class="es-ico" style="width: 56px; height: 56px; font-size: 1.4rem; border-radius: 16px;"><i class="fa-regular fa-bell-slash"></i></div>
+            <div class="small">No notifications right now</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>

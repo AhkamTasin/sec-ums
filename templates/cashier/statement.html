@@ -1,0 +1,67 @@
+{% extends "print_base.html" %}
+{% block title %}Bill — {{ student.reg_no }}{% endblock %}
+{% block content %}
+<div class="receipt-sheet p-4 mx-auto" style="max-width: 780px;">
+    {% include "partials/doc_header.html" with doc_title="Student Fee Bill / Account Statement" %}
+    <div class="row mb-3">
+        <div class="col-6">
+            <small class="text-muted d-block">Student</small>
+            <span class="fw-semibold">{{ student.user.get_full_name }}</span><br>
+            <small class="text-muted">{{ student.reg_no }}</small>
+        </div>
+        <div class="col-6 text-end">
+            <small class="text-muted d-block">Department</small>
+            <span class="fw-semibold">{{ student.department.name }}</span><br>
+            <small class="text-muted">Semester {{ student.semester }} · Session {{ student.session }}</small>
+        </div>
+    </div>
+
+    <h6 class="fw-bold">Fees Charged (up to Semester {{ student.semester }})</h6>
+    <table class="table table-bordered">
+        <thead class="table-light"><tr><th>Semester</th><th>Fee Type</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for f in structures %}
+            <tr><td>Semester {{ f.semester }}</td><td>{{ f.get_fee_type_display }}</td><td class="text-end">৳{{ f.amount|floatformat:2 }}</td></tr>
+        {% empty %}
+            <tr><td colspan="3" class="text-center text-muted">No fees defined.</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot class="table-light"><tr><th colspan="2">Total Payable</th><th class="text-end">৳{{ payable|floatformat:2 }}</th></tr></tfoot>
+    </table>
+
+    <h6 class="fw-bold">Payments Made</h6>
+    <table class="table table-bordered">
+        <thead class="table-light"><tr><th>Receipt</th><th>Date</th><th>Type</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for p in payments %}
+            <tr><td><code>{{ p.receipt_no }}</code></td><td>{{ p.payment_date|date:"d M Y" }}</td><td>{{ p.get_fee_type_display }}</td><td class="text-end">৳{{ p.amount|floatformat:2 }}</td></tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">No payments yet.</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot class="table-light"><tr><th colspan="3">Total Paid (confirmed)</th><th class="text-end">৳{{ paid|floatformat:2 }}</th></tr></tfoot>
+    </table>
+
+    {% if pending %}
+    <div class="alert alert-warning small py-2 mb-3">
+        <i class="fa-solid fa-hourglass-half me-1"></i>
+        <strong>Pending verification (not yet counted):</strong>
+        {% for p in pending %}{{ p.get_fee_type_display }} ৳{{ p.amount|floatformat:0 }} ({{ p.receipt_no }}){% if not forloop.last %} · {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="alert {% if due > 0 %}alert-danger{% else %}alert-success{% endif %} d-flex justify-content-between align-items-center fw-bold mb-0">
+        <span>Outstanding Due</span><span>৳{{ due|floatformat:2 }}</span>
+    </div>
+
+    <div class="d-flex justify-content-between mt-5 pt-2">
+        <div><small class="text-muted">Generated on {% now "d M Y" %}</small></div>
+        <div class="text-center"><div style="border-top:1px solid #333; padding-top:4px; min-width:200px;">Cashier</div></div>
+    </div>
+
+    <div class="doc-foot">
+        <span>Sylhet Engineering College — University Management System</span>
+        <span>All Rights Reserved</span>
+    </div>
+</div>
+{% endblock %}

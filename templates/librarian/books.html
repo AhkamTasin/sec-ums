@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Books{% endblock %}
+{% block page_heading %}Book Catalogue{% endblock %}
+{% block page_subheading %}Browse the library like a bookstore — click any book for details{% endblock %}
+{% block content %}
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form class="d-flex gap-2 flex-wrap align-items-center" method="get">
+            <div class="input-group" style="max-width: 320px;">
+                <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input class="form-control border-start-0" type="search" name="q" value="{{ q }}" placeholder="Search title, author, ISBN, publisher...">
+            </div>
+            <select name="category" class="form-select" style="max-width: 180px;">
+                <option value="">All categories</option>
+                {% for value, label in categories %}
+                <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="availability" class="form-select" style="max-width: 170px;">
+                <option value="">Any availability</option>
+                <option value="AVAILABLE" {% if availability == "AVAILABLE" %}selected{% endif %}>Available now</option>
+                <option value="OUT" {% if availability == "OUT" %}selected{% endif %}>Out of stock</option>
+            </select>
+            <button class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            {% if q or category or availability %}
+            <a class="btn btn-outline-secondary" href="{% url 'library:book_list' %}"><i class="fa-solid fa-xmark me-1"></i>Clear</a>
+            {% endif %}
+            <a class="btn btn-success ms-auto" href="{% url 'library:book_add' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Book</a>
+        </form>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-muted text-uppercase" style="letter-spacing: 1px; font-size: .75rem;">
+        <i class="fa-solid fa-grip me-1"></i>{{ page_obj.paginator.count }} title{{ page_obj.paginator.count|pluralize:"s" }} found
+    </h6>
+</div>
+
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
+    {% for b in books %}
+    <div class="col">
+        <div class="book-card">
+            <a href="{% url 'library:book_detail' b.pk %}">
+                <div class="book-cover">
+                    {% if b.cover %}
+                        <img src="{{ b.cover.url }}" alt="Cover of {{ b.title }}">
+                    {% else %}
+                        <div class="cover-placeholder cover-{{ b.category }}">
+                            <i class="fa-solid fa-book cover-icon"></i>
+                            <div class="cp-title">{{ b.title|truncatewords:8 }}</div>
+                            <div class="cp-author">{{ b.author }}</div>
+                        </div>
+                    {% endif %}
+                    <span class="badge text-bg-light border cover-cat">{{ b.get_category_display }}</span>
+                    {% if b.available > 0 %}
+                        <span class="badge text-bg-success cover-avail">{{ b.available }} available</span>
+                    {% else %}
+                        <span class="badge text-bg-danger cover-avail">Out of stock</span>
+                    {% endif %}
+                </div>
+                <div class="book-info">
+                    <div class="book-title">{{ b.title }}</div>
+                    <div class="book-author"><i class="fa-solid fa-user me-1"></i>{{ b.author }}</div>
+                    <div class="book-isbn">ISBN {{ b.isbn }}</div>
+                </div>
+                <div class="book-foot">
+                    <span class="text-muted"><i class="fa-solid fa-arrows-rotate me-1"></i>Borrowed {{ b.times_borrowed }}×</span>
+                    {% if b.shelf %}<span class="badge text-bg-light border"><i class="fa-solid fa-location-dot me-1"></i>{{ b.shelf }}</span>{% endif %}
+                </div>
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card"><div class="card-body text-center text-muted py-5">
+            <i class="fa-solid fa-rectangle-xmark display-3 d-block mb-3"></i>
+            <h6 class="fw-bold">No books found</h6>
+            <p class="small">Try a different search term or filter, or <a href="{% url 'library:book_add' %}">add a new book</a>.</p>
+        </div></div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="card mt-3">{% include "partials/pagination.html" %}</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Fee Structures{% endblock %}
+{% block page_heading %}Fee Structures{% endblock %}
+{% block page_subheading %}Define what each department owes per semester{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <form class="d-flex gap-2" method="get">
+            <select name="dept" class="form-select">
+                <option value="">All departments</option>
+                {% for d in departments %}<option value="{{ d.code }}" {% if dept == d.code %}selected{% endif %}>{{ d.code }}</option>{% endfor %}
+            </select>
+            <select name="sem" class="form-select">
+                <option value="">All semesters</option>
+                {% for s in semesters %}<option value="{{ s }}" {% if sem == s|stringformat:'i' %}selected{% endif %}>Semester {{ s }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-outline-primary"><i class="fa-solid fa-filter"></i></button>
+        </form>
+        <a class="btn btn-primary" href="{% url 'fees:fee_structure_add' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Fee</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Department</th><th>Semester</th><th>Fee Type</th>
+                <th class="text-end">Amount</th><th class="pe-3"></th>
+            </tr></thead>
+            <tbody>
+            {% for f in structures %}
+                <tr>
+                    <td class="ps-3"><span class="badge text-bg-light border">{{ f.department.code }}</span></td>
+                    <td>Semester {{ f.semester }}</td>
+                    <td>{{ f.get_fee_type_display }}{% if f.description %} <small class="text-muted">— {{ f.description }}</small>{% endif %}</td>
+                    <td class="text-end fw-semibold">৳{{ f.amount|floatformat:0 }}</td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'fees:fee_structure_edit' f.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No fee structures defined.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

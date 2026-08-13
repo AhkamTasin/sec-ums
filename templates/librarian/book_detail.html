@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }}{% endblock %}
+{% block page_heading %}{{ book.title }}{% endblock %}
+{% block page_subheading %}Book details &amp; borrow history{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'library:book_list' %}"><i class="fa-solid fa-arrow-left me-1"></i>Back to Catalogue</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4 col-lg-3">
+        <div class="book-detail-cover">
+            {% if book.cover %}
+                <img src="{{ book.cover.url }}" alt="Cover of {{ book.title }}">
+            {% else %}
+                <div class="cover-placeholder book-detail-cover cover-{{ book.category }}">
+                    <i class="fa-solid fa-book cover-icon"></i>
+                    <div class="cp-title fs-5">{{ book.title }}</div>
+                    <div class="cp-author">{{ book.author }}</div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="d-grid gap-2 mt-3">
+            {% if book.available > 0 %}
+            <a class="btn btn-primary" href="{% url 'library:issue_book' %}?book={{ book.pk }}"><i class="fa-solid fa-book-bookmark me-1"></i>Issue this Book</a>
+            {% else %}
+            <button class="btn btn-secondary" disabled><i class="fa-solid fa-circle-minus me-1"></i>Out of Stock</button>
+            {% endif %}
+            <a class="btn btn-outline-primary" href="{% url 'library:book_edit' book.pk %}"><i class="fa-solid fa-pen-to-square me-1"></i>Edit Book</a>
+        </div>
+        <div class="card mt-3 border-danger">
+            <div class="card-body py-3">
+                <small class="text-danger fw-bold d-block mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>Danger zone</small>
+                <form method="post" action="{% url 'library:book_delete' book.pk %}" data-confirm="Delete '{{ book.title|escapejs }}' permanently? This cannot be undone.">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger w-100"><i class="fa-solid fa-trash me-1"></i>Delete Book</button>
+                </form>
+                <small class="text-muted d-block mt-2" style="font-size:.72rem;">Books with borrow history cannot be deleted, so circulation records stay intact.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8 col-lg-9">
+        <div class="card mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <h4 class="fw-bold mb-1" style="color:#1e1b4b;">{{ book.title }}</h4>
+                        <div class="text-muted mb-2"><i class="fa-solid fa-user me-1"></i>{{ book.author }}{% if book.year %} · {{ book.year }}{% endif %}</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge text-bg-light border mb-1">{{ book.get_category_display }}</span><br>
+                        {% if book.available > 0 %}
+                            <span class="badge text-bg-success"><i class="fa-solid fa-circle-check me-1"></i>{{ book.available }} of {{ book.quantity }} available</span>
+                        {% else %}
+                            <span class="badge text-bg-danger"><i class="fa-solid fa-circle-xmark me-1"></i>Out of stock</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <hr>
+                <div class="row g-3 small">
+                    <div class="col-6 col-md-3"><small class="text-muted d-block">ISBN</small><code>{{ book.isbn }}</code></div>
+                    <div class="col-6 col-md-3"><small class="text-muted d-block">Publisher</small>{{ book.publisher|default:"—" }}</div>
+                    <div class="col-6 col-md-3"><small class="text-muted d-block">Shelf location</small>{{ book.shelf|default:"—" }}</div>
+                    <div class="col-6 col-md-3"><small class="text-muted d-block">Added on</small>{{ book.added_at|date:"d M Y" }}</div>
+                </div>
+                {% if book.description %}
+                <hr>
+                <small class="text-muted text-uppercase fw-semibold" style="font-size:.7rem; letter-spacing:1px;">About this book</small>
+                <p class="mt-1 mb-0">{{ book.description }}</p>
+                {% endif %}
+                <hr>
+                <div class="row text-center g-2">
+                    <div class="col-4">
+                        <div class="fs-4 fw-bold text-primary">{{ times_borrowed }}</div>
+                        <small class="text-muted">Times borrowed</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fs-4 fw-bold text-warning">{{ current_issues|length }}</div>
+                        <small class="text-muted">Currently issued</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fs-4 fw-bold text-success">{{ times_returned }}</div>
+                        <small class="text-muted">Times returned</small>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 8px;">
+                    <div class="progress-bar {% if book.available == 0 %}bg-danger{% else %}bg-success{% endif %}" style="width: {% widthratio book.available book.quantity 100 %}%"></div>
+                </div>
+                <small class="text-muted">{{ book.available }} of {{ book.quantity }} copies on the shelf</small>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-3"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Borrow History</div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr>
+                        <th class="ps-3">Student</th><th>Issued</th><th>Due</th><th>Status</th><th class="text-end pe-3">Fine</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for i in issues %}
+                        <tr class="{% if i.is_overdue %}table-danger{% endif %}">
+                            <td class="ps-3">{{ i.student.user.get_full_name }} <small class="text-muted">({{ i.student.reg_no }})</small></td>
+                            <td>{{ i.issue_date|date:"d M Y" }}</td>
+                            <td>{{ i.due_date|date:"d M Y" }}</td>
+                            <td>
+                                {% if i.status == "RETURNED" %}
+                                    <span class="badge text-bg-success">Returned {{ i.return_date|date:"d M" }}</span>
+                                {% elif i.is_overdue %}
+                                    <span class="badge text-bg-danger">Overdue {{ i.overdue_days }}d</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning">Issued</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">{% if i.fine > 0 %}<span class="text-danger fw-semibold">৳{{ i.fine|floatformat:0 }}</span>{% else %}—{% endif %}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-4">This book has never been borrowed.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

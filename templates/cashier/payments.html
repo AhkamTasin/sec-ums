@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Payments{% endblock %}
+{% block page_heading %}Payment History{% endblock %}
+{% block page_subheading %}Search payments, print receipts, update statuses{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header py-3">
+        <form class="d-flex gap-2 flex-wrap align-items-center" method="get">
+            <input class="form-control" style="max-width:220px;" type="search" name="q" value="{{ q }}" placeholder="Receipt, reg no or name...">
+            <input class="form-control" style="max-width:150px;" type="date" name="from" value="{{ date_from }}" title="From date">
+            <input class="form-control" style="max-width:150px;" type="date" name="to" value="{{ date_to }}" title="To date">
+            <select name="method" class="form-select" style="max-width:160px;">
+                <option value="">All methods</option>
+                {% for value, label in methods %}
+                <option value="{{ value }}" {% if method == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="form-select" style="max-width:160px;">
+                <option value="">All statuses</option>
+                {% for value, label in statuses %}
+                <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-primary"><i class="fa-solid fa-magnifying-glass me-1"></i>Search</button>
+            {% if q or date_from or date_to or method or status %}
+            <a class="btn btn-outline-secondary" href="{% url 'fees:payment_list' %}"><i class="fa-solid fa-xmark"></i></a>
+            {% endif %}
+            <a class="btn btn-primary ms-auto" href="{% url 'fees:payment_record' %}"><i class="fa-solid fa-money-bill-wave me-1"></i>Receive Payment</a>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Receipt No</th><th>Student</th><th>Fee Type</th>
+                <th>Method</th><th>Date</th><th>Status</th><th class="text-end">Amount</th><th class="text-end pe-3">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for p in payments %}
+                <tr>
+                    <td class="ps-3"><code>{{ p.receipt_no }}</code></td>
+                    <td>{{ p.student.user.get_full_name }} <small class="text-muted">({{ p.student.reg_no }})</small></td>
+                    <td>{{ p.get_fee_type_display }}</td>
+                    <td><span class="badge text-bg-light border">{{ p.get_method_display }}</span></td>
+                    <td>{{ p.payment_date|date:"d M Y" }}</td>
+                    <td>
+                        {% if p.status == "CONFIRMED" %}<span class="badge text-bg-success">Confirmed</span>
+                        {% elif p.status == "PENDING" %}<span class="badge text-bg-warning">Pending</span>
+                        {% else %}<span class="badge text-bg-danger">Cancelled</span>{% endif %}
+                    </td>
+                    <td class="text-end fw-semibold {% if p.status == 'CANCELLED' %}text-muted text-decoration-line-through{% else %}text-success{% endif %}">৳{{ p.amount|floatformat:0 }}</td>
+                    <td class="text-end pe-3">
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'fees:receipt' p.pk %}" title="View / print receipt"><i class="fa-solid fa-print"></i></a>
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'fees:payment_edit' p.pk %}" title="Update payment / status"><i class="fa-solid fa-pen-to-square"></i></a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No payments found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="text-muted small">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize:"s" }} · confirmed total <span class="text-success fw-semibold">৳{{ confirmed_total|floatformat:0 }}</span> <small class="text-muted">(all statuses: ৳{{ summary|floatformat:0 }})</small></span>
+        {% include "partials/pagination.html" %}
+    </div>
+</div>
+{% endblock %}

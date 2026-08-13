@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Update Payment{% endblock %}
+{% block page_heading %}Update Payment — {{ payment.receipt_no }}{% endblock %}
+{% block page_subheading %}Correct details or change the payment status{% endblock %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+                {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small class="text-muted">{{ field.help_text }}</small>{% endif %}
+                    {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save Changes</button>
+                    <a class="btn btn-outline-secondary" href="{% url 'fees:receipt' payment.pk %}">Cancel</a>
+                </div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-body p-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size:.7rem; letter-spacing:1px;">Original record</small>
+            <table class="table table-borderless small mt-2 mb-0">
+                <tr><td class="text-muted" style="width:130px;">Receipt No</td><td><code>{{ payment.receipt_no }}</code></td></tr>
+                <tr><td class="text-muted">Student</td><td class="fw-semibold">{{ payment.student.user.get_full_name }} ({{ payment.student.reg_no }})</td></tr>
+                <tr><td class="text-muted">Department</td><td>{{ payment.student.department.code }} — Semester {{ payment.student.semester }}</td></tr>
+                <tr><td class="text-muted">Recorded at</td><td>{{ payment.created_at|date:"d M Y, h:i A" }}</td></tr>
+                <tr><td class="text-muted">Current status</td><td>
+                    {% if payment.status == "CONFIRMED" %}<span class="badge text-bg-success">Confirmed</span>
+                    {% elif payment.status == "PENDING" %}<span class="badge text-bg-warning">Pending</span>
+                    {% else %}<span class="badge text-bg-danger">Cancelled</span>{% endif %}
+                </td></tr>
+            </table>
+            <div class="alert alert-info small mt-3 mb-0">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                Receipt number and student are locked for audit purposes. Only
+                <strong>Confirmed</strong> payments reduce the student's due;
+                <strong>Cancelled</strong> payments are kept as void records.
+            </div>
+        </div></div>
+    </div>
+</div>
+{% endblock %}

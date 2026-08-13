@@ -1,0 +1,97 @@
+{% extends "print_base.html" %}
+{% block title %}Daily Report — {{ report_date|date:"d M Y" }}{% endblock %}
+{% block content %}
+<div class="receipt-sheet p-4 mx-auto" style="max-width: 820px;">
+    {% include "partials/doc_header.html" with doc_title="Daily Fee Collection Report" %}
+    <div class="fw-bold mb-3" style="color:#16182e;">{{ report_date|date:"l, d F Y" }}</div>
+
+    <div class="row g-2 mb-4 text-center">
+        <div class="col-3"><div class="border rounded py-2">
+            <div class="fs-5 fw-bold text-success">৳{{ total|floatformat:0 }}</div>
+            <small class="text-muted">Confirmed collection</small>
+        </div></div>
+        <div class="col-3"><div class="border rounded py-2">
+            <div class="fs-5 fw-bold">{{ receipt_count }}</div>
+            <small class="text-muted">Confirmed receipts</small>
+        </div></div>
+        <div class="col-3"><div class="border rounded py-2">
+            <div class="fs-5 fw-bold text-warning">{{ pending_count }}</div>
+            <small class="text-muted">Pending</small>
+        </div></div>
+        <div class="col-3"><div class="border rounded py-2">
+            <div class="fs-5 fw-bold text-danger">{{ cancelled_count }}</div>
+            <small class="text-muted">Cancelled</small>
+        </div></div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6">
+            <h6 class="fw-bold border-bottom pb-1">Collection by Method</h6>
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light"><tr><th>Method</th><th class="text-center">Receipts</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                {% for row in by_method %}
+                    <tr><td>{{ row.label }}</td><td class="text-center">{{ row.count }}</td><td class="text-end">৳{{ row.total|floatformat:2 }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">No collections.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="col-6">
+            <h6 class="fw-bold border-bottom pb-1">Collection by Fee Type</h6>
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light"><tr><th>Fee type</th><th class="text-center">Receipts</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                {% for row in by_fee_type %}
+                    <tr><td>{{ row.label }}</td><td class="text-center">{{ row.count }}</td><td class="text-end">৳{{ row.total|floatformat:2 }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">No collections.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <h6 class="fw-bold border-bottom pb-1">Receipts Issued</h6>
+    <table class="table table-sm table-bordered">
+        <thead class="table-light">
+            <tr><th>Receipt</th><th>Student</th><th>Fee Type</th><th>Method</th><th>Status</th><th class="text-end">Amount</th></tr>
+        </thead>
+        <tbody>
+        {% for p in payments %}
+            <tr>
+                <td><code>{{ p.receipt_no }}</code></td>
+                <td>{{ p.student.user.get_full_name }} ({{ p.student.reg_no }})</td>
+                <td>{{ p.get_fee_type_display }}</td>
+                <td>{{ p.get_method_display }}</td>
+                <td>{{ p.get_status_display }}</td>
+                <td class="text-end {% if p.status == 'CANCELLED' %}text-decoration-line-through text-muted{% endif %}">৳{{ p.amount|floatformat:2 }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="text-center text-muted">No receipts were issued on this date.</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if payments %}
+        <tfoot class="table-light">
+            <tr><th colspan="5" class="text-end">Total Confirmed Collection</th><th class="text-end">৳{{ total|floatformat:2 }}</th></tr>
+        </tfoot>
+        {% endif %}
+    </table>
+    <p class="small mb-4"><strong>In words:</strong> {{ words }}.</p>
+
+    <div class="d-flex justify-content-between mt-5 pt-3">
+        <div class="text-center">
+            <div style="min-width:200px; border-top:1px solid #333; padding-top:4px;">Prepared by (Cashier)</div>
+            <small class="text-muted">{{ request.user.get_full_name }}</small>
+        </div>
+        <div class="text-center">
+            <div style="min-width:200px; border-top:1px solid #333; padding-top:4px;">Verified by (Accounts Officer)</div>
+        </div>
+    </div>
+    <div class="doc-foot">
+        <span>Generated {% now "d M Y, h:i A" %}</span>
+        <span>© {% now "Y" %} Sylhet Engineering College · University Management System</span>
+    </div>
+</div>
+{% endblock %}
