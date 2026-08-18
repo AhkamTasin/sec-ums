@@ -1,0 +1,268 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SEC UMS — Sylhet Engineering College</title>
+    <meta name="description" content="Official University Management System of Sylhet Engineering College — academics, results, fees and library in one secure portal.">
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/gfonts/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/aos/aos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+</head>
+<body>
+
+{# ======================= top navigation ======================= #}
+<nav class="lnd-nav">
+    <div class="container d-flex align-items-center gap-3 py-2">
+        <a href="{% url 'accounts:landing' %}" class="d-flex align-items-center gap-2 text-decoration-none text-white">
+            <img src="{% static 'img/logo.png' %}" alt="SEC logo" style="width: 42px; height: 42px;" class="bg-white rounded-circle p-1">
+            <span class="lh-1">
+                <span class="d-block fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">SEC UMS</span>
+                <small style="font-size:.62rem; letter-spacing:1.4px; text-transform:uppercase; color:#cbb6c4;">Sylhet Engineering College</small>
+            </span>
+        </a>
+        <div class="ms-auto d-none d-lg-flex gap-4 small">
+            <a href="#about" class="text-white-50 text-decoration-none">About</a>
+            <a href="#departments" class="text-white-50 text-decoration-none">Departments</a>
+            <a href="#notices" class="text-white-50 text-decoration-none">Notices</a>
+            <a href="#links" class="text-white-50 text-decoration-none">Quick Links</a>
+            <a href="#contact" class="text-white-50 text-decoration-none">Contact</a>
+        </div>
+        <div class="ms-lg-3 ms-auto">
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'accounts:dashboard' %}" class="btn btn-brand-light btn-sm px-3"><i class="fa-solid fa-gauge-high me-1"></i>My Dashboard</a>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn btn-brand-light btn-sm px-3"><i class="fa-solid fa-right-to-bracket me-1"></i>Portal Login</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+{# ======================= hero ======================= #}
+<header class="lnd-hero">
+    {% if campus_image %}
+    <img class="campus-img" src="{% static campus_image %}" alt="Sylhet Engineering College campus">
+    {# NOTE: drop the official campus photo at static/img/campus.jpg to use it here and on the login page #}
+    {% endif %}
+    <div class="container text-center py-5">
+
+        <img class="lnd-logo-hero mb-4" src="{% static 'img/logo.png' %}" alt="Sylhet Engineering College logo" data-aos="zoom-in" data-aos-duration="800">
+        <div style="letter-spacing: 3px; font-size: .78rem; color: #e7bcc7; text-transform: uppercase;" data-aos="fade-up" data-aos-delay="100">Official University Portal</div>
+        <h1 class="display-5 fw-bold mt-2 mb-2" style="font-family:'Plus Jakarta Sans',sans-serif;" data-aos="fade-up" data-aos-delay="150">Sylhet Engineering College</h1>
+        <p class="fs-5 mb-4" style="color:#d9d2e4;" data-aos="fade-up" data-aos-delay="200">University Management System</p>
+        <p class="mx-auto mb-4" style="max-width: 640px; color:#b9b3cc;" data-aos="fade-up" data-aos-delay="250">
+            One secure platform for students, faculty and staff — courses, attendance,
+            assessments, results, fees and library services, all in one place.
+        </p>
+        <div class="d-flex gap-2 justify-content-center flex-wrap" data-aos="fade-up" data-aos-delay="300">
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'accounts:dashboard' %}" class="btn btn-brand-light px-4 py-2"><i class="fa-solid fa-gauge-high me-2"></i>Go to Dashboard</a>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn btn-brand-light px-4 py-2"><i class="fa-solid fa-right-to-bracket me-2"></i>Portal Login</a>
+            {% endif %}
+            <a href="#notices" class="btn btn-outline-light-2 px-4 py-2"><i class="fa-solid fa-bullhorn me-2"></i>Latest Notices</a>
+        </div>
+
+        <div class="row g-3 mt-5 justify-content-center" data-aos="fade-up" data-aos-delay="380">
+            <div class="col-6 col-md-3"><div class="lnd-stat">
+                <div class="fs-3 fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">{{ stats.students }}</div>
+                <small style="color:#c6bfda;">Students</small>
+            </div></div>
+            <div class="col-6 col-md-3"><div class="lnd-stat">
+                <div class="fs-3 fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">{{ stats.teachers }}</div>
+                <small style="color:#c6bfda;">Faculty Members</small>
+            </div></div>
+            <div class="col-6 col-md-3"><div class="lnd-stat">
+                <div class="fs-3 fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">{{ stats.departments }}</div>
+                <small style="color:#c6bfda;">Departments</small>
+            </div></div>
+            <div class="col-6 col-md-3"><div class="lnd-stat">
+                <div class="fs-3 fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">{{ stats.courses }}</div>
+                <small style="color:#c6bfda;">Courses Offered</small>
+            </div></div>
+        </div>
+    </div>
+</header>
+
+{# ======================= about ======================= #}
+<section class="lnd-section" id="about">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6" data-aos="fade-right">
+                <div class="lnd-kicker mb-2">About the Institution</div>
+                <h2 class="fw-bold mb-3" style="font-family:'Plus Jakarta Sans',sans-serif;">Engineering education<br>with purpose, in Sylhet.</h2>
+                <p class="text-muted">
+                    Sylhet Engineering College (SEC) educates the next generation of engineers through
+                    hands-on laboratories, industry-oriented coursework and close faculty mentorship.
+                    The college runs undergraduate programmes across multiple engineering disciplines,
+                    with a strong focus on practical skills and research culture.
+                </p>
+                <p class="text-muted">
+                    The <strong>SEC University Management System</strong> is the college's official
+                    digital backbone — unifying admissions records, course management, attendance,
+                    examination results, fee collection and the central library into a single
+                    secure portal for students, faculty and administrative staff.
+                </p>
+                <div class="d-flex gap-2 flex-wrap mt-3">
+                    <span class="badge rounded-pill text-bg-light border px-3 py-2"><i class="fa-solid fa-flask me-1 text-primary"></i>Modern Labs</span>
+                    <span class="badge rounded-pill text-bg-light border px-3 py-2"><i class="fa-solid fa-book-open me-1 text-primary"></i>Central Library</span>
+                    <span class="badge rounded-pill text-bg-light border px-3 py-2"><i class="fa-solid fa-user-graduate me-1 text-primary"></i>Career Focus</span>
+                    <span class="badge rounded-pill text-bg-light border px-3 py-2"><i class="fa-solid fa-wifi me-1 text-primary"></i>Digital Campus</span>
+                </div>
+            </div>
+            <div class="col-lg-6" id="departments" data-aos="fade-left">
+                <div class="lnd-card p-4">
+                    <h6 class="fw-bold mb-1">Academic Departments</h6>
+                    <p class="text-muted small mb-3">Programmes currently managed through SEC UMS</p>
+                    {% for d in departments %}
+                    <div class="d-flex align-items-center gap-3 py-2 {% if not forloop.last %}border-bottom{% endif %}">
+                        <span class="lnd-ico" style="width:42px;height:42px;font-size:1rem;border-radius:12px;background:linear-gradient(135deg,#a82442,#701020);">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </span>
+                        <div>
+                            <div class="fw-semibold">{{ d.name }}</div>
+                            <small class="text-muted">Department code: {{ d.code }}</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small mb-0">Departments will appear here once configured.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ======================= notices / news ======================= #}
+<section class="lnd-section lnd-section-alt" id="notices">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <div class="lnd-kicker mb-2">Stay Updated</div>
+            <h2 class="fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">Latest Notices, News &amp; Events</h2>
+            <p class="text-muted">Announcements published by the college administration</p>
+        </div>
+        <div class="row g-3">
+            {% for n in notices %}
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0 }}00">
+                <div class="lnd-card p-4">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="notice-date">
+                            <span class="nd-day">{{ n.created_at|date:"d" }}</span>
+                            <span class="nd-mon">{{ n.created_at|date:"M y" }}</span>
+                        </div>
+                        <div>
+                            <span class="badge mb-1" style="background: var(--brand-50); color: var(--brand-700); font-size:.65rem;"><i class="fa-solid fa-bullhorn me-1"></i>Notice</span>
+                            <h6 class="fw-bold mb-1">{{ n.title }}</h6>
+                            <p class="text-muted small mb-0">{{ n.body|truncatewords:22 }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12"><div class="empty-state bg-transparent">
+                <div class="es-ico"><i class="fa-regular fa-bell-slash"></i></div>
+                <h6 class="fw-bold">No notices published yet</h6>
+                <p class="small mb-0">Official announcements will appear here.</p>
+            </div></div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-4" data-aos="fade-up">
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary"><i class="fa-solid fa-right-to-bracket me-1"></i>Sign in to read full notices</a>
+        </div>
+    </div>
+</section>
+
+{# ======================= quick links ======================= #}
+<section class="lnd-section" id="links">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <div class="lnd-kicker mb-2">One Portal, Everything</div>
+            <h2 class="fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">Quick Links</h2>
+            <p class="text-muted">Jump straight to the service you need</p>
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="0">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-square-poll-vertical"></i>Exam Results &amp; Transcripts</a>
+            </div>
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="80">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-calendar-check"></i>Attendance Records</a>
+            </div>
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="160">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-coins"></i>Fees &amp; Online Receipts</a>
+            </div>
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="0">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-book"></i>Central Library</a>
+            </div>
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="80">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-calendar-days"></i>Class Routines</a>
+            </div>
+            <div class="col-6 col-lg-4" data-aos="fade-up" data-aos-delay="160">
+                <a class="lnd-quick-link" href="{% url 'accounts:login' %}"><i class="fa-solid fa-folder-open"></i>Course Materials</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ======================= CTA band ======================= #}
+<section class="pb-5">
+    <div class="container" data-aos="zoom-in">
+        <div class="lnd-cta p-5 text-center">
+            <img src="{% static 'img/logo.png' %}" alt="SEC" style="width:74px;height:74px;" class="bg-white rounded-circle p-1 mb-3 shadow">
+            <h3 class="fw-bold" style="font-family:'Plus Jakarta Sans',sans-serif;">Welcome to the SEC digital campus</h3>
+            <p style="color:#cdb3c3;">Students, faculty and staff — sign in with your institutional account to continue.</p>
+            <a href="{% url 'accounts:login' %}" class="btn btn-brand-light px-4 mt-2"><i class="fa-solid fa-right-to-bracket me-2"></i>Sign In to SEC UMS</a>
+        </div>
+    </div>
+</section>
+
+{# ======================= footer / contact ======================= #}
+<footer class="lnd-footer" id="contact">
+    <div class="container">
+        <div class="row g-4 pb-4">
+            <div class="col-lg-5">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <img src="{% static 'img/logo.png' %}" alt="SEC" style="width:52px;height:52px;" class="bg-white rounded-circle p-1">
+                    <div>
+                        <div class="fw-bold text-white" style="font-family:'Plus Jakarta Sans',sans-serif;">Sylhet Engineering College</div>
+                        <small>University Management System</small>
+                    </div>
+                </div>
+                <p class="small">The official digital platform of Sylhet Engineering College for academic,
+                financial and library services.</p>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="text-white fw-bold small text-uppercase mb-3" style="letter-spacing:1.5px;">Quick Links</div>
+                <ul class="list-unstyled small d-grid gap-2">
+                    <li><a href="#about"><i class="fa-solid fa-chevron-right me-2"></i>About SEC</a></li>
+                    <li><a href="#notices"><i class="fa-solid fa-chevron-right me-2"></i>Notices</a></li>
+                    <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-chevron-right me-2"></i>Portal Login</a></li>
+                    <li><a href="{% url 'accounts:password_reset' %}"><i class="fa-solid fa-chevron-right me-2"></i>Reset Password</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="text-white fw-bold small text-uppercase mb-3" style="letter-spacing:1.5px;">Contact</div>
+                <ul class="list-unstyled small d-grid gap-2">
+                    <li><i class="fa-solid fa-location-dot me-2" style="color:#c44d68;"></i>Sylhet Engineering College, Sylhet, Bangladesh</li>
+                    <li><i class="fa-solid fa-envelope me-2" style="color:#c44d68;"></i>info@sec.edu.bd</li>
+                    <li><i class="fa-solid fa-phone me-2" style="color:#c44d68;"></i>+880 1700-000000 (Office)</li>
+                </ul>
+            </div>
+        </div>
+        <div class="text-center small pt-3" style="border-top: 1px solid rgba(255,255,255,.08);">
+            © {% now "Y" %} <strong class="text-white">Sylhet Engineering College</strong> · University Management System · All Rights Reserved
+        </div>
+    </div>
+</footer>
+
+<script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/aos/aos.js' %}"></script>
+<script>
+    AOS.init({ once: true, duration: 650, easing: "ease-out-cubic" });
+</script>
+</body>
+</html>

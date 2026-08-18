@@ -1,16 +1,85 @@
 {% extends "base.html" %}
 {% block title %}In-course Marks — {{ course.code }}{% endblock %}
-{% block page_heading %}In-course Marks — {{ course.code }}{% endblock %}
-{% block page_subheading %}{{ course.title }} · Mid 30 + Quiz 10 + Assignment 10 + Lab 10 = 60 total{% endblock %}
+{% block page_heading %}{% if lab_mode %}Lab Components &amp; Total{% else %}In-course Marks{% endif %} — {{ course.code }}{% endblock %}
+{% block page_subheading %}
+    {% if lab_mode %}
+        {{ course.title }} · Lab course · teacher-set components totalling 100
+    {% else %}
+        {{ course.title }} · Term Test avg 20 + Assignment 10 + Attendance 10 = in-course 40
+    {% endif %}
+{% endblock %}
 {% block content %}
-<div class="alert alert-info py-2 small">
-    <i class="fa-solid fa-circle-info me-1"></i>
-    Calculated automatically from the midterm result and your quiz/assignment/lab assessments.
-    <strong>Submit</strong> makes them visible to students. Final results are published only by the Department Administrator.
+
+{% if lab_mode %}
+<div class="alert alert-info py-2 small d-flex align-items-center gap-2">
+    <i class="fa-solid fa-circle-info"></i>
+    <div>
+        Lab courses are marked from <strong>Quiz + Lab Work + Viva</strong> components you create as assessments.
+        Component maximums must sum to <strong>{{ target_total|floatformat:0 }}</strong> —
+        current Σ max: <strong>{{ max_total|floatformat:0 }}</strong>
+        {% if max_total == target_total %}<span class="badge text-bg-success">ready ✓</span>
+        {% else %}<span class="badge text-bg-danger">fix before submitting</span>{% endif %}
+    </div>
 </div>
 <div class="card">
     <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>Calculated in-course marks (out of 60)</span>
+        <span>Calculated lab totals (out of {{ target_total|floatformat:0 }})</span>
+        {% if rows and max_total == target_total %}
+        <form method="post" data-confirm="Submit lab totals for {{ rows|length }} students? The Department Administrator can then publish them.">
+            {% csrf_token %}
+            <button class="btn btn-success"><i class="fa-solid fa-paper-plane me-1"></i>Submit Lab Totals</button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <table class="table align-middle mb-0">
+            <thead><tr>
+                <th class="ps-3">Reg No</th><th>Student</th>
+                <th class="text-center">Quiz</th>
+                <th class="text-center">Lab Work</th>
+                <th class="text-center">Viva</th>
+                <th class="text-center">Total <small class="text-muted">/100</small></th>
+                <th class="text-center pe-3">Submitted</th>
+            </tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ row.student.reg_no }}</td>
+                    <td>{{ row.student.user.get_full_name }}</td>
+                    <td class="text-center">{{ row.lab.by_kind.quiz.obtained|floatformat:1 }} <small class="text-muted">/ {{ row.lab.by_kind.quiz.max|floatformat:0 }}</small></td>
+                    <td class="text-center">{{ row.lab.by_kind.lab.obtained|floatformat:1 }} <small class="text-muted">/ {{ row.lab.by_kind.lab.max|floatformat:0 }}</small></td>
+                    <td class="text-center">{{ row.lab.by_kind.viva.obtained|floatformat:1 }} <small class="text-muted">/ {{ row.lab.by_kind.viva.max|floatformat:0 }}</small></td>
+                    <td class="text-center fw-bold text-primary">{{ row.lab.total }}</td>
+                    <td class="text-center pe-3">
+                        {% if row.submitted %}
+                            <span class="badge text-bg-{% if row.submitted.is_published %}success{% else %}primary{% endif %}">
+                                {% if row.submitted.is_published %}✓ published{% else %}✓ submitted{% endif %}
+                            </span>
+                        {% else %}
+                            <span class="badge text-bg-light border">not submitted</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No students enrolled.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info py-2 small d-flex align-items-center gap-2">
+    <i class="fa-solid fa-circle-info"></i>
+    <div>
+        Calculated automatically: <strong>Term Test average (of 20)</strong> from your TT assessments +
+        <strong>Assignment (of 10)</strong> + <strong>Attendance (of 10)</strong> from the attendance records.
+        <strong>Submit</strong> makes them visible to students. Final results are published only by the Department Administrator.
+    </div>
+</div>
+<div class="card">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>Calculated in-course marks (out of 40)</span>
         {% if rows %}
         <form method="post" data-confirm="Submit in-course marks for {{ rows|length }} students? Students will see them immediately.">
             {% csrf_token %}
@@ -22,11 +91,10 @@
         <table class="table align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">Reg No</th><th>Student</th>
-                <th class="text-center">Mid <small class="text-muted">/30</small></th>
-                <th class="text-center">Quiz <small class="text-muted">/10</small></th>
+                <th class="text-center">Term Test <small class="text-muted">/20</small></th>
                 <th class="text-center">Assign <small class="text-muted">/10</small></th>
-                <th class="text-center">Lab <small class="text-muted">/10</small></th>
-                <th class="text-center">Total <small class="text-muted">/60</small></th>
+                <th class="text-center">Attendance <small class="text-muted">/10</small></th>
+                <th class="text-center">Total <small class="text-muted">/40</small></th>
                 <th class="text-center pe-3">Submitted</th>
             </tr></thead>
             <tbody>
@@ -34,10 +102,9 @@
                 <tr>
                     <td class="ps-3 fw-semibold">{{ row.student.reg_no }}</td>
                     <td>{{ row.student.user.get_full_name }}</td>
-                    <td class="text-center">{{ row.calc.mid }}</td>
-                    <td class="text-center">{{ row.calc.quiz }}</td>
+                    <td class="text-center">{{ row.calc.term_test }}</td>
                     <td class="text-center">{{ row.calc.assignment }}</td>
-                    <td class="text-center">{{ row.calc.lab }}</td>
+                    <td class="text-center">{{ row.calc.attendance }} <small class="text-muted">({{ row.calc.attendance_pct|floatformat:0 }}%)</small></td>
                     <td class="text-center fw-bold text-primary">{{ row.calc.total }}</td>
                     <td class="text-center pe-3">
                         {% if row.submitted %}
@@ -48,10 +115,11 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="8" class="text-center text-muted py-4">No students enrolled.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No students enrolled.</td></tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{% endif %}
 {% endblock %}

@@ -36,9 +36,12 @@ class Department(models.Model):
 
 
 class Course(models.Model):
+    TYPE_CHOICES = [("THEORY", "Theory Course"), ("LAB", "Lab Course")]
+
     code = models.CharField(max_length=15, unique=True)
     title = models.CharField(max_length=150)
     credit = models.DecimalField(max_digits=3, decimal_places=1, default=3.0)
+    course_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="THEORY")
     department = models.ForeignKey(
         Department, on_delete=models.CASCADE, related_name="courses"
     )
@@ -53,6 +56,10 @@ class Course(models.Model):
 
     class Meta:
         ordering = ["department", "semester", "code"]
+
+    @property
+    def is_lab(self):
+        return self.course_type == "LAB"
 
     def __str__(self):
         return f"{self.code} — {self.title}"
@@ -69,8 +76,10 @@ class Result(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="results")
     exam_type = models.CharField(max_length=10, choices=EXAM_CHOICES, default="FINAL")
     marks = models.DecimalField(max_digits=5, decimal_places=2)
-    grade = models.CharField(max_length=3, editable=False)
-    grade_point = models.DecimalField(max_digits=3, decimal_places=2, editable=False)
+    grade = models.CharField(max_length=3, editable=False, default="")
+    grade_point = models.DecimalField(
+        max_digits=3, decimal_places=2, editable=False, default=0
+    )
     # Publication workflow: teachers submit marks, only the Department
     # Administrator can publish. Students never see unpublished results.
     is_published = models.BooleanField(default=False)
@@ -89,7 +98,11 @@ class Result(models.Model):
         ordering = ["course__semester", "course__code"]
 
     def save(self, *args, **kwargs):
-        self.grade, self.grade_point = grade_from_marks(self.marks)
+        # Lab-course finals are the full 100 → grade directly. Theory finals
+        # are out of 60 — their grade is stamped at publish time using
+        # in-course (40) + final (60) combined, never on the raw 60 alone.
+        if self.course_id and self.course.is_lab:
+            self.grade, self.grade_point = grade_from_marks(self.marks)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -173,9 +186,31 @@ class Notice(models.Model):
 # Teacher coursework: attendance, materials, assessments, in-course marks
 # ---------------------------------------------------------------------------
 
-# In-course mark weights: Mid 30 + Quiz 10 + Assignment 10 + Lab 10 = 60 total
-INCOURSE_WEIGHTS = {"mid": 30.0, "quiz": 10.0, "assignment": 10.0, "lab": 10.0}
-INCOURSE_TOTAL = sum(INCOURSE_WEIGHTS.values())
+# ---------------------------------------------------------------------------
+# Official marking scheme (theory courses): total 100 = in-course 40 + final 60
+#   In-course 40 = Term Test average (20) + Assignment (10) + Attendance (10)
+#     - Term Tests: TT1 & TT2, each out of 20 → component = average of the two
+#     - Assignments: pooled (Σ obtained / Σ max) scaled to 10
+#     - Attendance: percentage mapped to marks by the bracket table below
+#   Final exam: entered directly out of 60
+# Lab courses: total 100 from teacher-set components (quiz + lab work + viva),
+#   entered as assessments whose max marks sum to 100.
+# ---------------------------------------------------------------------------
+THEORY_WEIGHTS = {"term_test": 20.0, "assignment": 10.0, "attendance": 10.0}
+THEORY_INCOURSE_MAX = sum(THEORY_WEIGHTS.values())  # 40
+THEORY_FINAL_MAX = 60.0
+COURSE_TOTAL_MAX = 100.0
+
+# Attendance % -> marks (out of 10): >=90 → 10, >=85 → 9, ... >=60 → 4, below → 0
+ATTENDANCE_MARK_BRACKETS = [(90, 10), (85, 9), (80, 8), (75, 7), (70, 6), (65, 5), (60, 4)]
+
+
+def attendance_mark(pct):
+    """Map an attendance percentage (0-100) to attendance marks (0-10)."""
+    for threshold, marks in ATTENDANCE_MARK_BRACKETS:
+        if pct >= threshold:
+            return float(marks)
+    return 0.0
 
 
 class Attendance(models.Model):
@@ -229,10 +264,17 @@ class Assessment(models.Model):
     """A quiz / assignment / lab task created by a teacher for a course."""
 
     KIND_CHOICES = [
-        ("QUIZ", "Quiz"),
+        ("TT", "Term Test"),
         ("ASSIGNMENT", "Assignment"),
+        ("QUIZ", "Quiz"),
         ("LAB", "Lab Work"),
+        ("VIVA", "Viva"),
     ]
+    # Which kinds count for which course type (in-course components)
+    KINDS_FOR_TYPE = {
+        "THEORY": ("TT", "ASSIGNMENT"),
+        "LAB": ("QUIZ", "LAB", "VIVA"),
+    }
 
     course = models.ForeignKey(
         Course, on_delete=models.CASCADE, related_name="assessments"
@@ -288,10 +330,10 @@ class InCourseMark(models.Model):
     student = models.ForeignKey(
         "accounts.Student", on_delete=models.CASCADE, related_name="incourse_marks"
     )
-    mid = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    quiz = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Theory in-course (out of 40): TT avg (20) + assignment (10) + attendance (10)
+    term_test = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     assignment = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    lab = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    attendance = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     submitted_by = models.ForeignKey(
         "accounts.User", on_delete=models.SET_NULL, null=True, blank=True
@@ -303,41 +345,106 @@ class InCourseMark(models.Model):
         ordering = ["student__reg_no"]
 
     def __str__(self):
-        return f"{self.course.code} in-course {self.student.reg_no}: {self.total}/60"
+        return f"{self.course.code} in-course {self.student.reg_no}: {self.total}/40"
 
 
 def compute_incourse(course, student):
-    """Compute in-course components (mid 30, quiz 10, assignment 10, lab 10).
+    """Compute THEORY in-course marks (out of 40) for one student.
 
-    Mid component comes from the MID result (scaled to 30). Other components
-    come from assessments of each kind: (obtained / max) * weight. A component
-    with no assessments/marks counts as 0 — teachers should create
-    assessments before submitting.
+    Official scheme: TT average (20) + assignment (10) + attendance (10).
+
+    * Term Test component: the average of the two (or N) term tests, each
+      normalised by its own max marks → scaled to 20. An unmarked TT counts 0.
+    * Assignment component: pooled over assignments —
+      (Σ obtained / Σ max) × 10.
+    * Attendance component: percentage of attended classes (Late counts as
+      attended) mapped through ATTENDANCE_MARK_BRACKETS → 0–10.
+    A component with no assessments/records counts as 0 — teachers should
+    complete assessments & attendance before submitting.
     """
-    result = (
-        Result.objects.filter(course=course, student=student, exam_type="MID")
-        .only("marks")
-        .first()
-    )
-    parts = {"mid": (float(result.marks) / 100) * INCOURSE_WEIGHTS["mid"] if result else 0.0}
+    parts = {}
 
-    for kind, weight in (
-        ("QUIZ", INCOURSE_WEIGHTS["quiz"]),
-        ("ASSIGNMENT", INCOURSE_WEIGHTS["assignment"]),
-        ("LAB", INCOURSE_WEIGHTS["lab"]),
-    ):
+    tts = list(course.assessments.filter(kind="TT").only("id", "max_marks"))
+    if tts:
+        shares = []
+        for a in tts:
+            mark = (
+                AssessmentMark.objects.filter(assessment=a, student=student)
+                .only("marks")
+                .first()
+            )
+            shares.append(
+                (float(mark.marks) if mark else 0.0) / float(a.max_marks or 1)
+            )
+        parts["term_test"] = (sum(shares) / len(shares)) * THEORY_WEIGHTS["term_test"]
+    else:
+        parts["term_test"] = 0.0
+
+    assignments = list(
+        course.assessments.filter(kind="ASSIGNMENT").only("id", "max_marks")
+    )
+    if assignments:
+        total_max = sum(float(a.max_marks) for a in assignments)
+        obtained = (
+            AssessmentMark.objects.filter(
+                assessment__in=assignments, student=student
+            ).aggregate(s=models.Sum("marks"))["s"]
+            or 0
+        )
+        parts["assignment"] = (
+            (float(obtained) / total_max) * THEORY_WEIGHTS["assignment"]
+            if total_max
+            else 0.0
+        )
+    else:
+        parts["assignment"] = 0.0
+
+    records = Attendance.objects.filter(course=course, student=student)
+    total_classes = records.count()
+    attended = records.exclude(status="ABSENT").count()  # PRESENT/LATE = attended
+    pct = (attended / total_classes * 100) if total_classes else 0.0
+    parts["attendance"] = attendance_mark(pct)
+    parts["attendance_pct"] = pct
+
+    parts["total"] = parts["term_test"] + parts["assignment"] + parts["attendance"]
+    return {k: round(v, 2) for k, v in parts.items()}
+
+
+def lab_max_total(course):
+    """Σ max marks of a LAB course's assessments — teacher must design to 100."""
+    return float(
+        course.assessments.aggregate(s=models.Sum("max_marks"))["s"] or 0
+    )
+
+
+def compute_lab_total(course, student):
+    """LAB course total (out of 100): sum of obtained marks across the
+    teacher-set components (quiz / lab work / viva), capped at 100."""
+    by_kind = {}
+    total_obtained = 0.0
+    for kind, label in (("QUIZ", "Quiz"), ("LAB", "Lab Work"), ("VIVA", "Viva")):
         assessments = list(course.assessments.filter(kind=kind).only("id", "max_marks"))
-        if not assessments:
-            parts[kind.lower()] = 0.0
-            continue
-        total_max = sum(float(a.max_marks) for a in assessments)
+        max_sum = sum(float(a.max_marks) for a in assessments)
         obtained = (
             AssessmentMark.objects.filter(
                 assessment__in=assessments, student=student
             ).aggregate(s=models.Sum("marks"))["s"]
             or 0
-        )
-        parts[kind.lower()] = (float(obtained) / total_max) * weight if total_max else 0.0
+        ) if assessments else 0
+        by_kind[kind.lower()] = {
+            "label": label,
+            "obtained": float(obtained),
+            "max": max_sum,
+        }
+        total_obtained += float(obtained)
+    return {
+        "by_kind": by_kind,
+        "total": round(min(total_obtained, float(COURSE_TOTAL_MAX)), 2),
+        "max_total": lab_max_total(course),
+    }
 
-    parts["total"] = sum(parts.values())
-    return {k: round(v, 2) for k, v in parts.items()}
+
+def theory_course_grade(incourse_total, final_marks):
+    """Letter grade + point for a THEORY course:
+    grade on in-course (40) + final (60) combined out of 100."""
+    return grade_from_marks(float(incourse_total) + float(final_marks))

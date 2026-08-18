@@ -217,6 +217,57 @@ def payment_record(request):
 
 
 @role_required("CASHIER")
+def payment_amount_suggest(request):
+    """JSON helper: suggests the amount for (student, fee_type) = the EXACT
+    remaining due of that fee head (full-payment policy — no installments).
+    Also reports the exam-fee gate: unpaid admission fees must be cleared
+    first.  The Record Payment form auto-fills from here."""
+    from django.http import JsonResponse
+
+    from .forms import head_account
+
+    data = {"amount": "", "hint": ""}
+    student_id = request.GET.get("student", "")
+    fee_type = request.GET.get("fee_type", "")
+    labels = dict(FEE_TYPE_CHOICES)
+    if student_id.isdigit() and fee_type in labels:
+        student = Student.objects.select_related("department").filter(
+            pk=student_id
+        ).first()
+        if student:
+            payable, paid, due = head_account(student, fee_type)
+            label = labels[fee_type]
+            taka = lambda v: f"{float(v):,.0f}"  # noqa: E731
+            if fee_type == "EXAM":
+                _, _, adm_due = head_account(student, "ADMISSION")
+                if adm_due > 0:
+                    data["hint"] = (
+                        f"⛔ Exam Fee locked — unpaid Admission Fee of "
+                        f"৳{taka(adm_due)} must be paid first. Defaulters pay "
+                        f"admission + exam together (admission first)."
+                    )
+                    return JsonResponse(data)
+            if payable and due > 0:
+                data["amount"] = str(due)
+                data["hint"] = (
+                    f"{label} — full payment due: ৳{taka(due)} "
+                    f"(payable ৳{taka(payable)} − paid ৳{taka(paid)}). "
+                    f"Paid in full at once — no installments."
+                )
+            elif payable:
+                data["hint"] = (
+                    f"✔ {label} already fully paid (৳{taka(paid)} of "
+                    f"৳{taka(payable)}) — nothing to collect."
+                )
+            else:
+                data["hint"] = (
+                    f"No {label} structure for {student.department.code} "
+                    f"Sem-{student.semester} — nothing to collect."
+                )
+    return JsonResponse(data)
+
+
+@role_required("CASHIER")
 def payment_edit(request, pk):
     """Update payment details / status (confirm pending money, fix mistakes,
     or cancel a wrong entry). Receipt number and student stay the same."""

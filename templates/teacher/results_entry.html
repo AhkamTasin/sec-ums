@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Enter Results{% endblock %}
-{% block page_heading %}Enter Marks — {{ course.code }}{% endblock %}
+{% block title %}Enter Final Marks{% endblock %}
+{% block page_heading %}Enter Final Exam Marks — {{ course.code }}{% endblock %}
 {% block page_subheading %}
-    {{ course.title }} · {{ course.department.code }}, Semester {{ course.semester }} ·
-    {% if exam_type == "MID" %}Midterm Exam{% else %}Final Exam{% endif %}
+    {{ course.title }} · {{ course.department.code }}, Semester {{ course.semester }} · Final exam out of {{ final_max|floatformat:0 }} (in-course 40 is submitted separately)
 {% endblock %}
 {% block content %}
 {% if published %}
@@ -14,8 +13,8 @@
 {% endif %}
 <div class="card">
     <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>Marks out of 100 — grade is computed automatically on the UGC scale{% if not published %} <span class="text-muted">(results stay hidden from students until the Department Administrator publishes them)</span>{% endif %}</span>
-        <a class="btn btn-outline-secondary btn-sm" href="{% url 'academics:teacher_results_print' course.id exam_type %}"><i class="fa-solid fa-print me-1"></i>Print mark sheet</a>
+        <span>Marks out of {{ final_max|floatformat:0 }} — final grade is computed on in-course (40) + final ({{ final_max|floatformat:0 }}) at publication{% if not published %} <span class="text-muted">(hidden from students until published)</span>{% endif %}</span>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'academics:teacher_results_print' course.id 'FINAL' %}"><i class="fa-solid fa-print me-1"></i>Print mark sheet</a>
     </div>
     <div class="card-body p-0">
         <form method="post">
@@ -23,7 +22,8 @@
             <table class="table align-middle mb-0">
                 <thead><tr>
                     <th class="ps-3" style="width:60px;">#</th><th>Reg No</th><th>Student</th>
-                    <th style="width:160px;" class="text-center">Marks (0–100)</th><th class="text-center pe-3">Current Grade</th>
+                    <th style="width:170px;" class="text-center">Final marks (0–{{ final_max|floatformat:0 }})</th>
+                    <th class="text-center">In-course <small class="text-muted">/40</small></th><th class="text-center pe-3">Total <small class="text-muted">/100</small></th>
                 </tr></thead>
                 <tbody>
                 {% for row in rows %}
@@ -32,21 +32,21 @@
                         <td class="fw-semibold">{{ row.student.reg_no }}</td>
                         <td>{{ row.student.user.get_full_name }}</td>
                         <td>
-                            <input type="number" name="marks_{{ row.student.id }}" min="0" max="100" step="0.5"
+                            <input type="number" name="marks_{{ row.student.id }}" min="0" max="{{ final_max|floatformat:0 }}" step="0.5"
                                    class="form-control text-center"
                                    value="{% if row.result %}{{ row.result.marks }}{% endif %}"
                                    placeholder="—">
                         </td>
-                        <td class="text-center pe-3">
-                            {% if row.result %}
-                                <span class="badge grade-badge text-bg-{% if row.result.grade == 'F' %}danger{% else %}success{% endif %}">{{ row.result.grade }}</span>
-                            {% else %}
-                                <span class="text-muted small">not entered</span>
-                            {% endif %}
+                        <td class="text-center">
+                            {% if row.incourse %}{{ row.incourse.total|floatformat:1 }}
+                            {% else %}<span class="text-muted small">not submitted</span>{% endif %}
+                        </td>
+                        <td class="text-center pe-3 fw-semibold">
+                            {% if row.total_100 is not None %}{{ row.total_100 }}{% else %}—{% endif %}
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">No students enrolled in {{ course.department.code }} Semester {{ course.semester }}.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">No students enrolled in {{ course.department.code }} Semester {{ course.semester }}.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

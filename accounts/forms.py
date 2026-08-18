@@ -154,6 +154,55 @@ class DepartmentAdminUpdateForm(BootstrapFormMixin, forms.Form):
 
 
 # ---------------------------------------------------------------------------
+# Super Admin — central staff (Librarian / Cashier)
+# ---------------------------------------------------------------------------
+class StaffUserCreateForm(BootstrapFormMixin, forms.Form):
+    """Create a central staff account — Librarian or Cashier.
+
+    These are system-level roles serving ALL departments (central library,
+    central accounts office), so only the Super Admin can create them and
+    they have no department profile.
+    """
+
+    STAFF_ROLES = [
+        (User.Roles.LIBRARIAN, "Librarian"),
+        (User.Roles.CASHIER, "Cashier"),
+    ]
+
+    username = forms.CharField(
+        max_length=50, help_text="Login ID, e.g. L-1002 or C-1002."
+    )
+    first_name = forms.CharField(max_length=50)
+    last_name = forms.CharField(max_length=50)
+    email = forms.EmailField(required=False)
+    phone = forms.CharField(max_length=20, required=False)
+    role = forms.ChoiceField(
+        choices=STAFF_ROLES,
+        help_text="Central staff serve every department — no department is assigned.",
+    )
+    password = forms.CharField(max_length=50, initial="staff123")
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError("This username is already taken.")
+        return username
+
+    @transaction.atomic
+    def save(self):
+        data = self.cleaned_data
+        return User.objects.create_user(
+            username=data["username"],
+            password=data["password"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            email=data.get("email", ""),
+            phone=data.get("phone", ""),
+            role=data["role"],
+        )
+
+
+# ---------------------------------------------------------------------------
 # Student / teacher management (Super Admin: any dept; Dept Admin: own dept)
 # ---------------------------------------------------------------------------
 class StudentCreateForm(BootstrapFormMixin, forms.Form):

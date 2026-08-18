@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_heading %}{{ title }}{% endblock %}
+{% block page_subheading %}Central staff serve ALL departments — only the Super Admin can create them{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-7">
+<div class="card"><div class="card-body p-4">
+    <div class="alert alert-light border d-flex gap-2 align-items-start">
+        <i class="fa-solid fa-circle-info text-primary mt-1"></i>
+        <small><strong>Librarian</strong> = central library &nbsp;·&nbsp; <strong>Cashier</strong> = central accounts office.
+        They get no department — department admins cannot create or manage them.</small>
+    </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-3">
+            {% for field in form %}
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+            <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+        </div>
+    </form>
+</div></div>
+</div></div>
+{% endblock %}

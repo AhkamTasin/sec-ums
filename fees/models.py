@@ -4,13 +4,8 @@ from django.db import models
 from django.utils import timezone
 
 FEE_TYPE_CHOICES = [
-    ("TUITION", "Tuition Fee"),
     ("ADMISSION", "Admission Fee"),
-    ("LAB", "Lab Fee"),
-    ("LIBRARY", "Library Fee"),
     ("EXAM", "Exam Fee"),
-    ("DEVELOPMENT", "Development Fee"),
-    ("OTHER", "Other"),
 ]
 
 PAYMENT_METHOD_CHOICES = [
@@ -56,7 +51,10 @@ class Payment(models.Model):
     student = models.ForeignKey(
         "accounts.Student", on_delete=models.CASCADE, related_name="payments"
     )
-    fee_type = models.CharField(max_length=15, choices=FEE_TYPE_CHOICES, default="TUITION")
+    # University policy: every fee head is paid IN FULL, in a single payment —
+    # no installments.  The Exam Fee is unlocked only after ALL admission fees
+    # are cleared (defaulters pay both together).  Enforced by PaymentForm.
+    fee_type = models.CharField(max_length=15, choices=FEE_TYPE_CHOICES, default="ADMISSION")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, default="CASH")
     status = models.CharField(

@@ -495,13 +495,6 @@ body.sidebar-open .sidebar-backdrop { opacity: 1; pointer-events: auto; }
     width: 78px; height: 78px; border-radius: 50%; background: #fff; padding: 6px;
     box-shadow: 0 10px 26px rgba(21, 17, 54, .22); margin: 0 auto; display: block;
 }
-.demo-chip {
-    cursor: pointer; font-size: .74rem; padding: .32rem .6rem; border-radius: 8px;
-    background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text-2);
-    transition: all .13s ease; user-select: none;
-}
-.demo-chip:hover { border-color: var(--brand-400); color: var(--brand-600); background: var(--brand-50); transform: translateY(-1px); }
-[data-bs-theme="dark"] .demo-chip:hover { background: var(--surface-3); }
 
 /* -------- landing -------- */
 .lnd-nav {

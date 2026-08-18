@@ -28,7 +28,14 @@ from accounts.forms import (
 )
 from accounts.models import Student, Teacher, User
 from academics.forms import CourseForm, DeptRoutineForm
-from academics.models import Course, Notice, Result, Routine
+from academics.models import (
+    Course,
+    InCourseMark,
+    Notice,
+    Result,
+    Routine,
+    theory_course_grade,
+)
 from academics.views import visible_notices, weekly_grid
 
 SEMESTERS = range(1, 9)
@@ -594,15 +601,12 @@ def dept_results(request, dept):
     courses = (
         Course.objects.filter(department=dept)
         .annotate(
-            mid_count=Count("results", filter=Q(results__exam_type="MID")),
-            mid_published=Count(
-                "results", filter=Q(results__exam_type="MID", results__is_published=True)
-            ),
             final_count=Count("results", filter=Q(results__exam_type="FINAL")),
             final_published=Count(
                 "results",
                 filter=Q(results__exam_type="FINAL", results__is_published=True),
             ),
+            incourse_count=Count("incourse_marks"),
         )
         .select_related("teacher__user")
     )
@@ -621,18 +625,40 @@ def _exam_label(exam_type):
 @dept_admin_required
 def dept_results_review(request, dept, course_id, exam_type):
     course = get_object_or_404(Course, pk=course_id, department=dept)
-    if exam_type not in ("MID", "FINAL"):
-        messages.error(request, "Unknown exam type.")
+    if exam_type != "FINAL":
+        messages.error(request, "Publication is done for final course results.")
         return redirect("accounts:dept_results")
     existing = {
         r.student_id: r
-        for r in Result.objects.filter(course=course, exam_type=exam_type)
+        for r in Result.objects.filter(course=course, exam_type="FINAL")
     }
     students = Student.objects.filter(
         department=dept, semester=course.semester, user__is_active=True
     ).select_related("user")
-    rows = [{"student": s, "result": existing.get(s.id)} for s in students]
+    incourse = {}
+    if not course.is_lab:
+        incourse = {
+            m.student_id: m for m in InCourseMark.objects.filter(course=course)
+        }
+    rows = []
+    for s in students:
+        result = existing.get(s.id)
+        ic = incourse.get(s.id)
+        combined = None
+        if result and ic and not course.is_lab:
+            grade, point = theory_course_grade(ic.total, result.marks)
+            combined = {
+                "total": round(float(ic.total) + float(result.marks), 2),
+                "grade": grade,
+                "point": point,
+            }
+        rows.append(
+            {"student": s, "result": result, "incourse": ic, "combined": combined}
+        )
     published = bool(existing) and all(r.is_published for r in existing.values())
+    missing_incourse = 0
+    if not course.is_lab:
+        missing_incourse = sum(1 for r in rows if r["incourse"] is None)
     return render(
         request,
         "deptadmin/results_review.html",
@@ -644,6 +670,7 @@ def dept_results_review(request, dept, course_id, exam_type):
             "rows": rows,
             "published": published,
             "submitted": len(existing),
+            "missing_incourse": missing_incourse,
         },
     )
 
@@ -654,30 +681,78 @@ def dept_results_publish(request, dept, course_id, exam_type, action):
     course = get_object_or_404(Course, pk=course_id, department=dept)
     if (
         request.method == "POST"
-        and exam_type in ("MID", "FINAL")
+        and exam_type == "FINAL"
         and action in ("publish", "unpublish")
     ):
-        qs = Result.objects.filter(course=course, exam_type=exam_type)
+        qs = Result.objects.filter(course=course, exam_type="FINAL")
         if action == "publish":
             if not qs.exists():
                 messages.error(request, "Nothing to publish — no marks submitted yet.")
             else:
-                n = qs.update(
-                    is_published=True,
-                    published_at=timezone.now(),
-                    published_by=request.user,
-                )
+                if not course.is_lab:
+                    # in-course (40) must be submitted for every enrolled student
+                    enrolled = set(
+                        Student.objects.filter(
+                            department=dept,
+                            semester=course.semester,
+                            user__is_active=True,
+                        ).values_list("id", flat=True)
+                    )
+                    have_ic = set(
+                        InCourseMark.objects.filter(course=course).values_list(
+                            "student_id", flat=True
+                        )
+                    )
+                    missing = len(enrolled - have_ic)
+                    if missing:
+                        messages.error(
+                            request,
+                            f"Cannot publish yet — in-course marks (/40) are not "
+                            f"submitted for {missing} student(s). Ask the course "
+                            f"teacher to submit in-course marks first.",
+                        )
+                        return redirect(
+                            "accounts:dept_results_review",
+                            course_id=course.id,
+                            exam_type=exam_type,
+                        )
+                    # stamp combined grade (in-course 40 + final 60) on each row
+                    ic_map = {
+                        m.student_id: m.total
+                        for m in InCourseMark.objects.filter(course=course)
+                    }
+                    for r in qs:
+                        total_inc = ic_map.get(r.student_id)
+                        if total_inc is None:
+                            continue
+                        r.grade, r.grade_point = theory_course_grade(
+                            total_inc, r.marks
+                        )
+                        r.is_published = True
+                        r.published_at = timezone.now()
+                        r.published_by = request.user
+                        r.save(update_fields=[
+                            "grade", "grade_point", "is_published",
+                            "published_at", "published_by",
+                        ])
+                    n = qs.filter(is_published=True).count()
+                else:
+                    n = qs.update(
+                        is_published=True,
+                        published_at=timezone.now(),
+                        published_by=request.user,
+                    )
                 messages.success(
                     request,
-                    f"Published {n} {_exam_label(exam_type).lower()} result(s) for "
-                    f"{course.code}. Students can now see them.",
+                    f"Published {n} final result(s) for {course.code}. "
+                    f"Students can now see them.",
                 )
         else:
             n = qs.update(is_published=False, published_at=None, published_by=None)
             messages.warning(
                 request,
-                f"Unpublished {n} {_exam_label(exam_type).lower()} result(s) for "
-                f"{course.code}. They are hidden from students again.",
+                f"Unpublished {n} final result(s) for {course.code}. "
+                f"They are hidden from students again.",
             )
         return redirect(
             "accounts:dept_results_review", course_id=course.id, exam_type=exam_type

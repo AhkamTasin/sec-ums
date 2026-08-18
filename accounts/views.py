@@ -18,6 +18,7 @@ from accounts.forms import (
     DepartmentAdminUpdateForm,
     DepartmentForm,
     NoticeForm,
+    StaffUserCreateForm,
     StudentCreateForm,
     StyledAuthenticationForm,
     TeacherCreateForm,
@@ -72,18 +73,6 @@ class UMSLoginView(auth_views.LoginView):
         return self.get_redirect_url() or reverse(
             self.request.user.dashboard_url
         )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["demo_accounts"] = [
-            ("Super Admin", "admin", "admin123"),
-            ("Dept Admin (CSE)", "D-CSE1", "deptadmin123"),
-            ("Teacher", "T-1001", "teacher123"),
-            ("Student", "2024331501", "student123"),
-            ("Librarian", "L-1001", "library123"),
-            ("Cashier", "C-1001", "cashier123"),
-        ]
-        return context
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +484,29 @@ def manage_users(request):
         request,
         "adminpanel/users.html",
         {"users": users, "role": role, "q": q, "roles": User.Roles.choices},
+    )
+
+
+@role_required("SUPER_ADMIN")
+def add_staff(request):
+    """Create a central staff account (Librarian / Cashier)."""
+    form = StaffUserCreateForm(request.POST or None)
+    if form.is_valid():
+        user = form.save()
+        messages.success(
+            request,
+            f"{user.get_full_name()} added as {user.get_role_display()}. "
+            f"Login: {user.username} / {form.cleaned_data['password']}",
+        )
+        return redirect(f"{reverse('accounts:manage_users')}?role={user.role}")
+    return render(
+        request,
+        "adminpanel/staff_form.html",
+        {
+            "form": form,
+            "title": "Add Central Staff — Librarian / Cashier",
+            "cancel_url": reverse("accounts:manage_users"),
+        },
     )
 
 

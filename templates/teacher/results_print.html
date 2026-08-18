@@ -3,20 +3,18 @@
 {% block content %}
 <div class="border rounded p-4">
     <div class="text-center border-bottom pb-3 mb-3">
-        <h4 class="fw-bold mb-0">University Management System</h4>
-        <small class="text-muted">Examination Result Sheet</small>
-        <h6 class="mt-2 mb-0">
-            {{ course.code }} — {{ course.title }} ·
-            {% if exam_type == "MID" %}Midterm Exam{% else %}Final Exam{% endif %}
-        </h6>
+        <h4 class="fw-bold mb-0">Sylhet Engineering College</h4>
+        <small class="text-muted">Examination Result Sheet · {{ course.get_course_type_display }}</small>
+        <h6 class="mt-2 mb-0">{{ course.code }} — {{ course.title }}</h6>
         <small class="text-muted">{{ course.department.name }} · Semester {{ course.semester }} · Credit {{ course.credit }}</small>
     </div>
+
+    {% if lab_mode %}
     <table class="table table-bordered">
         <thead class="table-light"><tr>
             <th style="width:50px;">#</th><th>Reg No</th><th>Student Name</th>
-            <th class="text-center" style="width:130px;">Marks</th>
-            <th class="text-center" style="width:100px;">Grade</th>
-            <th class="text-center" style="width:100px;">Point</th>
+            <th class="text-center">Quiz</th><th class="text-center">Lab Work</th><th class="text-center">Viva</th>
+            <th class="text-center" style="width:100px;">Total /100</th>
         </tr></thead>
         <tbody>
         {% for row in rows %}
@@ -24,13 +22,39 @@
                 <td>{{ forloop.counter }}</td>
                 <td>{{ row.student.reg_no }}</td>
                 <td>{{ row.student.user.get_full_name }}</td>
-                <td class="text-center">{% if row.result %}{{ row.result.marks|floatformat:1 }}{% else %}—{% endif %}</td>
-                <td class="text-center fw-bold">{% if row.result %}{{ row.result.grade }}{% else %}—{% endif %}</td>
-                <td class="text-center">{% if row.result %}{{ row.result.grade_point }}{% else %}—{% endif %}</td>
+                <td class="text-center">{{ row.lab.by_kind.quiz.obtained|floatformat:1 }} / {{ row.lab.by_kind.quiz.max|floatformat:0 }}</td>
+                <td class="text-center">{{ row.lab.by_kind.lab.obtained|floatformat:1 }} / {{ row.lab.by_kind.lab.max|floatformat:0 }}</td>
+                <td class="text-center">{{ row.lab.by_kind.viva.obtained|floatformat:1 }} / {{ row.lab.by_kind.viva.max|floatformat:0 }}</td>
+                <td class="text-center fw-bold">{{ row.lab.total }}</td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <table class="table table-bordered">
+        <thead class="table-light"><tr>
+            <th style="width:45px;">#</th><th>Reg No</th><th>Student Name</th>
+            <th class="text-center">In-course <small>/40</small></th>
+            <th class="text-center">Final <small>/{{ final_max|floatformat:0 }}</small></th>
+            <th class="text-center" style="width:95px;">Total <small>/100</small></th>
+            <th class="text-center" style="width:80px;">Grade</th>
+        </tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ row.student.reg_no }}</td>
+                <td>{{ row.student.user.get_full_name }}</td>
+                <td class="text-center">{% if row.incourse %}{{ row.incourse.total|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td class="text-center">{% if row.result %}{{ row.result.marks|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td class="text-center fw-bold">{% if row.combined %}{{ row.combined.total }}{% else %}—{% endif %}</td>
+                <td class="text-center fw-bold">{% if row.combined %}{{ row.combined.grade }}{% else %}—{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
     <div class="d-flex justify-content-between mt-5 pt-4 px-3">
         <div class="text-center"><div style="border-top:1px solid #333; padding-top:4px; min-width:200px;">Course Teacher</div></div>
         <div class="text-center"><div style="border-top:1px solid #333; padding-top:4px; min-width:200px;">Chairman, {{ course.department.code }}</div></div>

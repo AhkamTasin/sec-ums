@@ -15,7 +15,7 @@ class CourseForm(BootstrapFormMixin, forms.ModelForm):
 
     class Meta:
         model = Course
-        fields = ["code", "title", "credit", "semester", "teacher"]
+        fields = ["code", "title", "credit", "course_type", "semester", "teacher"]
         help_texts = {"teacher": "Optional — assign later if not decided yet."}
 
     def __init__(self, *args, locked_department=None, **kwargs):

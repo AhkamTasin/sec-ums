@@ -1,10 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Record Payment{% endblock %}
 {% block page_heading %}Record Payment{% endblock %}
-{% block page_subheading %}A receipt will be generated and can be printed immediately{% endblock %}
+{% block page_subheading %}Each fee head is paid in full at once — Exam Fee unlocks only after the Admission Fee is cleared{% endblock %}
 {% block content %}
 <div class="row"><div class="col-lg-6">
 <div class="card"><div class="card-body p-4">
+    <div class="alert alert-light border d-flex gap-2 align-items-start py-2">
+        <i class="fa-solid fa-circle-info text-primary mt-1"></i>
+        <small><strong>University policy:</strong> per semester there are only two fees —
+        <strong>Admission Fee</strong> and <strong>Exam Fee</strong> — each paid <strong>in full at once</strong>.
+        A student with an unpaid admission fee must clear it before paying the exam fee.</small>
+    </div>
     <form method="post" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
@@ -12,6 +18,9 @@
         <div class="mb-3">
             <label class="form-label fw-semibold">{{ field.label }}</label>
             {{ field }}
+            {% if field.name == "amount" %}
+            <div class="form-text" id="amount-hint"></div>
+            {% endif %}
             {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         {% endfor %}
@@ -22,4 +31,29 @@
     </form>
 </div></div>
 </div></div>
+<script>
+(function () {
+    var studentSel = document.getElementById("id_student");
+    var feeSel = document.getElementById("id_fee_type");
+    var amountInput = document.getElementById("id_amount");
+    var hint = document.getElementById("amount-hint");
+    if (!studentSel || !feeSel || !amountInput) { return; }
+    function refresh() {
+        if (!studentSel.value) {
+            if (hint) { hint.textContent = ""; }
+            return;
+        }
+        fetch("{% url 'fees:payment_amount_suggest' %}?student=" + studentSel.value
+              + "&fee_type=" + feeSel.value)
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                amountInput.value = d.amount || "";
+                if (hint) { hint.textContent = d.hint || ""; }
+            });
+    }
+    studentSel.addEventListener("change", refresh);
+    feeSel.addEventListener("change", refresh);
+    if (studentSel.value) { refresh(); }  /* quick-collect prefill from dues page */
+})();
+</script>
 {% endblock %}

@@ -66,5 +66,5 @@ class AssessmentMarkAdmin(admin.ModelAdmin):
 
 @admin.register(InCourseMark)
 class InCourseMarkAdmin(admin.ModelAdmin):
-    list_display = ("course", "student", "mid", "quiz", "assignment", "lab", "total")
+    list_display = ("course", "student", "term_test", "assignment", "attendance", "total")
     readonly_fields = ("submitted_by", "submitted_at")

@@ -126,22 +126,5 @@
                 });
             }
         });
-
-        /* -----------------------------------------------------------
-           Login page demo chips: click to fill the form
-           ----------------------------------------------------------- */
-        document.querySelectorAll(".demo-chip").forEach(function (chip) {
-            chip.addEventListener("click", function () {
-                var u = document.getElementById("id_username");
-                var p = document.getElementById("id_password");
-                if (u && p) {
-                    u.value = chip.dataset.username;
-                    p.value = chip.dataset.password;
-                    u.focus();
-                    chip.classList.add("active");
-                    setTimeout(function () { chip.classList.remove("active"); }, 300);
-                }
-            });
-        });
     });
 })();

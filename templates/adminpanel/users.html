@@ -4,7 +4,7 @@
 {% block page_subheading %}Every account in the system — filter, inspect, enable or disable{% endblock %}
 {% block content %}
 <div class="card">
-    <div class="card-header py-3">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
         <form class="d-flex gap-2 flex-wrap" method="get">
             <input class="form-control" style="max-width:240px;" type="search" name="q" value="{{ q }}" placeholder="Search username or name...">
             <select name="role" class="form-select" style="max-width:230px;">
@@ -13,6 +13,7 @@
             </select>
             <button class="btn btn-outline-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
         </form>
+        <a class="btn btn-primary" href="{% url 'accounts:add_staff' %}"><i class="fa-solid fa-circle-plus me-1"></i>Add Staff (Librarian / Cashier)</a>
     </div>
     <div class="card-body p-0">
         <table class="table table-hover align-middle mb-0">

@@ -16,6 +16,11 @@ urlpatterns = [
     path("cashier/payments/", views.payment_list, name="payment_list"),
     path("cashier/payments/record/", views.payment_record, name="payment_record"),
     path(
+        "cashier/payments/suggest/",
+        views.payment_amount_suggest,
+        name="payment_amount_suggest",
+    ),
+    path(
         "cashier/payments/<int:pk>/edit/",
         views.payment_edit,
         name="payment_edit",

@@ -17,6 +17,8 @@ from accounts.models import Student
 
 from .forms import AssessmentForm, CourseMaterialForm, RoutineForm
 from .models import (
+    COURSE_TOTAL_MAX,
+    THEORY_FINAL_MAX,
     Assessment,
     AssessmentMark,
     Attendance,
@@ -27,6 +29,10 @@ from .models import (
     Result,
     Routine,
     compute_incourse,
+    compute_lab_total,
+    grade_from_marks,
+    lab_max_total,
+    theory_course_grade,
 )
 
 WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -165,17 +171,30 @@ def student_dashboard(request):
 def student_results(request):
     student = request.user.student_profile
     final_rows, cgpa, total_credits = compute_transcript(student, "FINAL")
-    midterm_results = (
-        Result.objects.filter(student=student, exam_type="MID", is_published=True)
-        .select_related("course")
-        .order_by("course__semester", "course__code")
+    incourse_map = {
+        m.course_id: m
+        for m in InCourseMark.objects.filter(student=student).select_related("course")
+    }
+    # enrich each published final row with its in-course breakdown & /100 total
+    for week in final_rows:
+        for r in week["results"]:
+            r.incourse = incourse_map.get(r.course_id)
+            r.is_lab_course = r.course.is_lab
+            if r.incourse and not r.is_lab_course:
+                r.total_100 = round(float(r.incourse.total) + float(r.marks), 2)
+            else:
+                r.total_100 = float(r.marks)
+    incourse_submitted = (
+        InCourseMark.objects.filter(student=student)
+        .select_related("course", "submitted_by")
+        .order_by("course__code")
     )
     context = {
         "student": student,
         "final_rows": final_rows,
         "cgpa": cgpa,
         "total_credits": total_credits,
-        "midterm_results": midterm_results,
+        "incourse_submitted": incourse_submitted,
     }
     return render(request, "student/results.html", context)
 
@@ -282,6 +301,22 @@ def teacher_results_entry(request, course_id, exam_type):
         return redirect("academics:teacher_results_courses")
     course, students, existing = loaded
 
+    if course.is_lab:
+        messages.info(
+            request,
+            f"{course.code} is a lab course — marks come from its quiz / lab-work / "
+            f"viva components on the In-course page.",
+        )
+        return redirect("academics:teacher_incourse", course_id=course.id)
+    if exam_type != "FINAL":
+        messages.error(
+            request,
+            "Marks are entered for the Final exam (out of 60). Term tests are "
+            "handled as in-course assessments.",
+        )
+        return redirect("academics:teacher_results_courses")
+
+    final_max = float(THEORY_FINAL_MAX)
     published = any(r.is_published for r in existing.values())
 
     if request.method == "POST":
@@ -306,28 +341,53 @@ def teacher_results_entry(request, course_id, exam_type):
             except ValueError:
                 messages.error(request, f"Invalid marks for {student.reg_no}.")
                 continue
-            if not 0 <= marks <= 100:
-                messages.error(request, f"Marks for {student.reg_no} must be 0–100.")
+            if not 0 <= marks <= final_max:
+                messages.error(
+                    request, f"Marks for {student.reg_no} must be 0–{final_max:g}."
+                )
                 continue
             Result.objects.update_or_create(
                 student=student,
                 course=course,
-                exam_type=exam_type,
+                exam_type="FINAL",
                 defaults={"marks": marks},
             )
             saved += 1
-        messages.success(request, f"Saved marks for {saved} student(s).")
+        messages.success(request, f"Saved final marks (/{final_max:g}) for {saved} student(s).")
         return redirect(
             "academics:teacher_results_entry",
             course_id=course.id,
             exam_type=exam_type,
         )
 
-    rows = [{"student": s, "result": existing.get(s.id)} for s in students]
+    incourse = {
+        m.student_id: m for m in InCourseMark.objects.filter(course=course)
+    }
+    rows = []
+    for s in students:
+        ic = incourse.get(s.id)
+        result = existing.get(s.id)
+        total_100 = (
+            round(float(ic.total) + float(result.marks), 2) if ic and result else None
+        )
+        rows.append(
+            {
+                "student": s,
+                "result": result,
+                "incourse": ic,
+                "total_100": total_100,
+            }
+        )
     return render(
         request,
         "teacher/results_entry.html",
-        {"course": course, "exam_type": exam_type, "rows": rows, "published": published},
+        {
+            "course": course,
+            "exam_type": exam_type,
+            "rows": rows,
+            "published": published,
+            "final_max": final_max,
+        },
     )
 
 
@@ -338,11 +398,50 @@ def teacher_results_print(request, course_id, exam_type):
         messages.error(request, "No result sheet available.")
         return redirect("academics:teacher_results_courses")
     course, students, existing = loaded
-    rows = [{"student": s, "result": existing.get(s.id)} for s in students]
+
+    if course.is_lab:
+        incourse = {m.student_id: m for m in InCourseMark.objects.filter(course=course)}
+        rows = [
+            {
+                "student": s,
+                "result": existing.get(s.id),
+                "lab": compute_lab_total(course, s),
+            }
+            for s in students
+        ]
+        return render(
+            request,
+            "teacher/results_print.html",
+            {"course": course, "exam_type": "FINAL", "rows": rows, "lab_mode": True},
+        )
+
+    if exam_type != "FINAL":
+        messages.error(request, "Mark sheets are available for the Final exam.")
+        return redirect("academics:teacher_results_courses")
+
+    incourse = {m.student_id: m for m in InCourseMark.objects.filter(course=course)}
+    rows = []
+    for s in students:
+        result = existing.get(s.id)
+        ic = incourse.get(s.id)
+        combined = None
+        if result and ic:
+            grade, point = theory_course_grade(ic.total, result.marks)
+            combined = {
+                "total": round(float(ic.total) + float(result.marks), 2),
+                "grade": grade,
+                "point": point,
+            }
+        rows.append({"student": s, "result": result, "incourse": ic, "combined": combined})
     return render(
         request,
         "teacher/results_print.html",
-        {"course": course, "exam_type": exam_type, "rows": rows},
+        {
+            "course": course,
+            "exam_type": exam_type,
+            "rows": rows,
+            "final_max": float(THEORY_FINAL_MAX),
+        },
     )
 
 
@@ -536,10 +635,33 @@ def teacher_assessments(request):
     kind = request.GET.get("kind", "")
     form = AssessmentForm(request.POST or None, request.FILES or None, teacher=teacher)
     if request.method == "POST" and form.is_valid():
-        assessment = form.save()
-        messages.success(
-            request, f"{assessment.get_kind_display()} '{assessment.title}' created."
-        )
+        assessment = form.save(commit=False)
+        course = assessment.course
+        allowed = Assessment.KINDS_FOR_TYPE.get(course.course_type, ())
+        if assessment.kind not in allowed:
+            kind_names = ", ".join(
+                dict(Assessment.KIND_CHOICES)[k] for k in allowed
+            )
+            messages.error(
+                request,
+                f"{course.code} is a {course.get_course_type_display().lower()} — "
+                f"its components are: {kind_names or 'none'}.",
+            )
+        elif (
+            course.is_lab
+            and lab_max_total(course) + float(assessment.max_marks) > COURSE_TOTAL_MAX
+        ):
+            messages.error(
+                request,
+                f"Lab components of {course.code} may total at most "
+                f"{COURSE_TOTAL_MAX:g} marks — Σ max is currently "
+                f"{lab_max_total(course):g}; this would add {float(assessment.max_marks):g}.",
+            )
+        else:
+            assessment.save()
+            messages.success(
+                request, f"{assessment.get_kind_display()} '{assessment.title}' created."
+            )
         return redirect(
             f"{reverse('academics:teacher_assessments')}?kind={assessment.kind}"
         )
@@ -548,7 +670,7 @@ def teacher_assessments(request):
         .select_related("course")
         .annotate(mark_count=Count("marks"))
     )
-    if kind in ("QUIZ", "ASSIGNMENT", "LAB"):
+    if kind in ("TT", "QUIZ", "ASSIGNMENT", "LAB", "VIVA"):
         assessments = assessments.filter(kind=kind)
     return render(
         request,
@@ -619,11 +741,67 @@ def teacher_assessment_marks(request, pk):
 # ===========================================================================
 @role_required("TEACHER")
 def teacher_incourse(request, course_id):
+    """Theory: review & submit in-course marks (/40 = TT 20 + assignment 10 +
+    attendance 10).  Lab: review component totals and submit the /100 total
+    as the course result (which the Dept Admin then publishes)."""
     course = _own_course(request, course_id)
     students = Student.objects.filter(
         department=course.department, semester=course.semester, user__is_active=True
     ).select_related("user")
 
+    # ----------------------------------------------------------- LAB course
+    if course.is_lab:
+        max_total = lab_max_total(course)
+        if request.method == "POST":
+            if round(max_total, 2) != round(float(COURSE_TOTAL_MAX), 2):
+                messages.error(
+                    request,
+                    f"Component max marks of {course.code} sum to {max_total:g}, not "
+                    f"{COURSE_TOTAL_MAX:g}. Fix your quiz/lab-work/viva totals first.",
+                )
+                return redirect("academics:teacher_incourse", course_id=course.id)
+            count = 0
+            for s in students:
+                calc = compute_lab_total(course, s)
+                Result.objects.update_or_create(
+                    course=course,
+                    student=s,
+                    exam_type="FINAL",
+                    defaults={"marks": calc["total"], "is_published": False},
+                )
+                count += 1
+            messages.success(
+                request,
+                f"Lab totals (/100) submitted for {count} student(s) in {course.code}. "
+                f"The Department Administrator can now publish them.",
+            )
+            return redirect("academics:teacher_incourse", course_id=course.id)
+
+        existing = {
+            r.student_id: r
+            for r in Result.objects.filter(course=course, exam_type="FINAL")
+        }
+        rows = [
+            {
+                "student": s,
+                "lab": compute_lab_total(course, s),
+                "submitted": existing.get(s.id),
+            }
+            for s in students
+        ]
+        return render(
+            request,
+            "teacher/incourse.html",
+            {
+                "course": course,
+                "lab_mode": True,
+                "rows": rows,
+                "max_total": max_total,
+                "target_total": float(COURSE_TOTAL_MAX),
+            },
+        )
+
+    # -------------------------------------------------------- THEORY course
     if request.method == "POST":
         count = 0
         for s in students:
@@ -632,7 +810,10 @@ def teacher_incourse(request, course_id):
                 course=course,
                 student=s,
                 defaults={
-                    **calc,
+                    "term_test": calc["term_test"],
+                    "assignment": calc["assignment"],
+                    "attendance": calc["attendance"],
+                    "total": calc["total"],
                     "submitted_by": request.user,
                     "submitted_at": timezone.now(),
                 },
@@ -640,7 +821,7 @@ def teacher_incourse(request, course_id):
             count += 1
         messages.success(
             request,
-            f"In-course marks submitted for {count} student(s) in {course.code}. "
+            f"In-course marks (/40) submitted for {count} student(s) in {course.code}. "
             f"Students can now see them.",
         )
         return redirect("academics:teacher_incourse", course_id=course.id)
@@ -832,20 +1013,40 @@ def student_results_pdf(request):
         Spacer(1, 12),
     ]
 
+    incourse_map = {
+        m.course_id: m
+        for m in InCourseMark.objects.filter(student=student).select_related("course")
+    }
+
     for row in rows:
-        data = [["Course", "Credit", "Marks", "Grade", "Point"]]
+        data = [["Course", "Cr.", "In-course /40", "Final /60", "Total /100", "Grade", "Point"]]
         for r in row["results"]:
+            ic = incourse_map.get(r.course_id)
+            if r.course.is_lab:
+                inc_cell, fin_cell = "—", "—"
+                total_cell = f"{float(r.marks):.1f}"
+            else:
+                inc_cell = f"{float(ic.total):.1f}" if ic else "—"
+                fin_cell = f"{float(r.marks):.1f}"
+                total_cell = (
+                    f"{(float(ic.total) + float(r.marks)):.1f}" if ic else f"{float(r.marks):.1f}"
+                )
             data.append(
                 [
                     f"{r.course.code} — {r.course.title}",
                     str(r.course.credit),
-                    f"{float(r.marks):.0f}",
+                    inc_cell,
+                    fin_cell,
+                    total_cell,
                     r.grade,
                     f"{float(r.grade_point):.2f}",
                 ]
             )
-        data.append(["", "", "", "Semester GPA", f"{row['gpa']:.2f}"])
-        table = Table(data, colWidths=[9.5 * cm, 2 * cm, 2 * cm, 2 * cm, 2 * cm])
+        data.append(["", "", "", "", "", "Semester GPA", f"{row['gpa']:.2f}"])
+        table = Table(
+            data,
+            colWidths=[7.3 * cm, 1.2 * cm, 2.1 * cm, 1.8 * cm, 1.9 * cm, 1.6 * cm, 1.6 * cm],
+        )
         table.setStyle(
             TableStyle(
                 [

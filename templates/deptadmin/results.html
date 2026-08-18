@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Results Review — {{ dept.code }}{% endblock %}
 {% block page_heading %}Results Review &amp; Publication — {{ dept.name }}{% endblock %}
-{% block page_subheading %}Teachers submit marks — only you can publish them to students{% endblock %}
+{% block page_subheading %}Teachers submit in-course &amp; final marks — only you can publish them to students{% endblock %}
 {% block content %}
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
-                <th class="ps-3">Course</th><th class="text-center">Semester</th><th class="text-center">Enrolled</th>
-                <th class="text-center">Midterm</th><th class="text-center pe-3">Final</th>
+                <th class="ps-3">Course</th><th class="text-center">Semester</th><th class="text-center">Type</th>
+                <th class="text-center">Enrolled</th><th class="text-center">In-course /40</th><th class="text-center pe-3">Final Result</th>
             </tr></thead>
             <tbody>
             {% for row in rows %}
@@ -17,16 +17,16 @@
                     <td class="ps-3"><strong>{{ c.code }}</strong> — {{ c.title }}
                         <div class="text-muted small">{{ c.teacher.user.get_full_name|default:"No teacher assigned" }}</div></td>
                     <td class="text-center"><span class="badge text-bg-light border">Sem {{ c.semester }}</span></td>
+                    <td class="text-center"><span class="badge text-bg-{% if c.is_lab %}warning{% else %}primary{% endif %}">{{ c.get_course_type_display }}</span></td>
                     <td class="text-center">{{ row.enrolled }}</td>
                     <td class="text-center">
-                        {% if c.mid_published == c.mid_count and c.mid_count > 0 %}
-                            <span class="badge text-bg-success">Published ({{ c.mid_published }})</span>
-                        {% elif c.mid_count > 0 %}
-                            <span class="badge text-bg-warning">Pending ({{ c.mid_published }}/{{ c.mid_count }})</span>
+                        {% if c.is_lab %}
+                            <span class="text-muted small">via components</span>
+                        {% elif c.incourse_count > 0 %}
+                            <span class="badge text-bg-success">{{ c.incourse_count }} submitted</span>
                         {% else %}
                             <span class="badge text-bg-light border">Not submitted</span>
                         {% endif %}
-                        <div class="mt-1"><a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:dept_results_review' c.id 'MID' %}">Review</a></div>
                     </td>
                     <td class="text-center pe-3">
                         {% if c.final_published == c.final_count and c.final_count > 0 %}
@@ -41,7 +41,7 @@
                 </tr>
                 {% endwith %}
             {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-4">No courses in this department yet.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">No courses in this department yet.</td></tr>
             {% endfor %}
             </tbody>
         </table>

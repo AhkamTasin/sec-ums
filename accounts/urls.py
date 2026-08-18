@@ -66,6 +66,7 @@ urlpatterns = [
     ),
     # All users
     path("admin-panel/users/", views.manage_users, name="manage_users"),
+    path("admin-panel/users/add/", views.add_staff, name="add_staff"),
     path("admin-panel/users/<int:pk>/toggle/", views.toggle_user, name="toggle_user"),
     # Students / teachers / notices (existing features)
     path("admin-panel/students/", views.manage_students, name="manage_students"),

@@ -1,6 +1,13 @@
 """Seed the database with demo data: departments, users, courses, results,
 routines, fees, payments, books, issues and notices.
 
+Marking scheme demoed here (official):
+  * Theory courses: total 100 = in-course 40 (TT avg 20 + assignment 10 +
+    attendance 10) + final exam 60. Grades are stamped at publish time on
+    the combined /100.
+  * Lab courses: total 100 from teacher-set components (quiz + lab work +
+    viva) whose max marks sum to 100; totals become the course result.
+
 Usage:  python manage.py seed_demo
 """
 
@@ -21,6 +28,8 @@ from academics.models import (
     Result,
     Routine,
     compute_incourse,
+    compute_lab_total,
+    theory_course_grade,
 )
 from accounts.models import DepartmentAdmin, Student, Teacher, User
 from fees.models import FeeStructure, Payment
@@ -32,9 +41,29 @@ TEACHER_PASSWORD = "teacher123"
 DEPT_ADMIN_PASSWORD = "deptadmin123"
 
 
-def marks_for(reg, course_index):
-    """Deterministic demo marks between 45 and 95."""
-    return 45 + (int(reg) + course_index * 7) % 51
+def final_for(reg, course_index):
+    """Deterministic demo final-exam marks between 32 and 58 (out of 60)."""
+    return 32 + (int(reg) + course_index * 7) % 27
+
+
+def amark(reg, seed, max_marks):
+    """Deterministic assessment mark: roughly 60%–95% of ``max_marks``."""
+    return round(float(max_marks) * (0.60 + ((int(reg) + seed * 7) % 8) * 0.05), 2)
+
+
+def hist_incourse(reg, course_index):
+    """Synthetic but plausible in-course component split (out of 40) for
+    already-completed semesters (no live assessments/attendance exist)."""
+    base = int(reg)
+    tt = 13.0 + (base + course_index * 3) % 7       # 13..19 of 20
+    asn = 7.0 + (base + course_index * 2) % 3       # 7..9 of 10
+    att = 7.0 + (base + course_index) % 4           # 7..10 of 10
+    return {
+        "term_test": round(tt, 2),
+        "assignment": round(asn, 2),
+        "attendance": round(att, 2),
+        "total": round(tt + asn + att, 2),
+    }
 
 
 class Command(BaseCommand):
@@ -105,11 +134,11 @@ class Command(BaseCommand):
         t4 = make_teacher("T-1004", "Tanvir", "Hossain", ce, "LECTURER", "M.Sc. in Civil Eng.")
 
         # ------------------------------------------------------------------
-        # Courses
+        # Courses (theory courses + lab courses)
         # ------------------------------------------------------------------
-        def course(code, title, credit, dept, semester, teacher):
+        def course(code, title, credit, dept, semester, teacher, course_type="THEORY"):
             return Course.objects.create(
-                code=code, title=title, credit=credit,
+                code=code, title=title, credit=credit, course_type=course_type,
                 department=dept, semester=semester, teacher=teacher,
             )
 
@@ -118,6 +147,7 @@ class Command(BaseCommand):
             course("CSE 1102", "Discrete Mathematics", 3.0, cse, 1, t1),
             course("EEE 1101", "Basic Electrical Engineering", 3.0, cse, 1, t3),
         ]
+        cse_sem1_lab = course("CSE 1104", "Structured Programming Lab", 1.5, cse, 1, t2, "LAB")
         cse_sem2 = [
             course("CSE 1201", "Object Oriented Programming", 4.0, cse, 2, t2),
             course("CSE 1202", "Digital Logic Design", 3.0, cse, 2, t3),
@@ -128,6 +158,8 @@ class Command(BaseCommand):
             course("CSE 2103", "Database Management Systems", 3.0, cse, 3, t2),
             course("CSE 2105", "Computer Architecture", 3.0, cse, 3, t3),
         ]
+        ds_lab = course("CSE 2102", "Data Structures Lab", 1.5, cse, 3, t1, "LAB")
+        db_lab = course("CSE 2104", "Database Management Systems Lab", 1.5, cse, 3, t2, "LAB")
         course("EEE 1201", "Circuit Analysis", 4.0, eee, 2, t3)
         course("EEE 1203", "Electronics I", 3.0, eee, 2, t3)
         course("CE 1101", "Engineering Drawing", 3.0, ce, 1, t4)
@@ -157,32 +189,184 @@ class Command(BaseCommand):
         s7 = make_student("2024331507", "Rakibul", "Islam", "M", ce, 1, "Sirajul Islam")
         s8 = make_student("2024331508", "Mim", "Chowdhury", "F", ce, 1, "Chowdhury Saheb")
 
-        # ------------------------------------------------------------------
-        # Exam results (final for completed semesters, midterm for current)
-        # ------------------------------------------------------------------
         cse_students = [s1, s2, s3, s4]
         now = timezone.now()
+        today = date.today()
+
+        # ------------------------------------------------------------------
+        # Assessments & marks (current semester coursework)
+        # ------------------------------------------------------------------
+        ds_course = cse_sem3[0]   # CSE 2101 theory (t1) — fully seeded
+        db_course = cse_sem3[1]   # CSE 2103 theory (t2) — partially seeded (demo work)
+        ca_course = cse_sem3[2]   # CSE 2105 theory (t3) — barely started
+
+        def assess(course, kind, title, max_marks, due=None, description=""):
+            return Assessment.objects.create(
+                course=course, kind=kind, title=title, max_marks=max_marks,
+                due_date=due, description=description,
+            )
+
+        # --- CSE 2101 (theory): TT1 + TT2 (each /20) + assignment (/10), all marked
+        tt1 = assess(ds_course, "TT", "Term Test 1 — Arrays, Linked Lists & Stacks", 20,
+                     today - timedelta(days=21))
+        tt2 = assess(ds_course, "TT", "Term Test 2 — Trees & Graphs", 20,
+                     today - timedelta(days=7))
+        as1 = assess(ds_course, "ASSIGNMENT", "Assignment 1 — Implement a Binary Tree", 10,
+                     today - timedelta(days=10), "Submit source code and output screenshots")
+
+        # --- CSE 2103 (theory): TT1 marked, TT2 created but UNMARKED (teacher
+        #     can demo entering marks), assignment marked.
+        b_tt1 = assess(db_course, "TT", "Term Test 1 — ER Modelling & SQL", 20,
+                       today - timedelta(days=14))
+        b_tt2 = assess(db_course, "TT", "Term Test 2 — Normalization & Transactions", 20,
+                       today - timedelta(days=2))
+        b_as1 = assess(db_course, "ASSIGNMENT", "Assignment 1 — Design a Library Schema", 10,
+                       today - timedelta(days=5), "ER diagram + normalized schema")
+
+        # --- CSE 2105 (theory): only the first term test, upcoming & unmarked
+        assess(ca_course, "TT", "Term Test 1 — Number Systems & ALU Design", 20,
+               today + timedelta(days=9))
+
+        # --- CSE 2102 (lab): quiz 10+10 + lab work 50 + viva 30 = 100, marked
+        l_q1 = assess(ds_lab, "QUIZ", "Quiz 1 — Array & Linked List Operations", 10,
+                      today - timedelta(days=12))
+        l_q2 = assess(ds_lab, "QUIZ", "Quiz 2 — Stacks, Queues & Trees", 10,
+                      today - timedelta(days=4))
+        l_lab = assess(ds_lab, "LAB", "Lab Performance, Reports & Final Lab Test", 50,
+                       today - timedelta(days=6))
+        l_viva = assess(ds_lab, "VIVA", "Final Viva-Voce", 30,
+                        today - timedelta(days=2))
+
+        # --- CSE 2104 (lab): quiz 20 + lab work 50 + viva 30 = 100, marked
+        m_q1 = assess(db_lab, "QUIZ", "Quiz 1 — SQL Queries & Joins", 20,
+                      today - timedelta(days=8))
+        m_lab = assess(db_lab, "LAB", "Lab Work — Schema Design & Query Practice", 50,
+                       today - timedelta(days=3))
+        m_viva = assess(db_lab, "VIVA", "Final Viva-Voce", 30,
+                        today - timedelta(days=1))
+
+        def mark(assessment, students, seed):
+            for s in students:
+                AssessmentMark.objects.create(
+                    assessment=assessment, student=s,
+                    marks=amark(s.reg_no, seed, assessment.max_marks),
+                )
+
+        # Theory in-course inputs (CSE 2101 fully marked; CSE 2103 TT2 pending)
+        for i, a in enumerate((tt1, tt2, as1)):
+            mark(a, cse_students, seed=i + 1)
+        mark(b_tt1, cse_students, seed=5)
+        mark(b_as1, cse_students, seed=6)
+        # Lab components, fully marked
+        for i, a in enumerate((l_q1, l_q2, l_lab, l_viva)):
+            mark(a, cse_students, seed=i + 10)
+        for i, a in enumerate((m_q1, m_lab, m_viva)):
+            mark(a, cse_students, seed=i + 20)
+
+        # ------------------------------------------------------------------
+        # Attendance: past 2 weeks for the current CSE sem-3 courses
+        # ------------------------------------------------------------------
+        for i, c in enumerate([ds_course, db_course, ds_lab]):
+            for day_offset in range(12, 0, -3):
+                d = today - timedelta(days=day_offset)
+                for s in cse_students:
+                    status = "PRESENT"
+                    if (int(s.reg_no[-2:]) + day_offset + i) % 11 == 0:
+                        status = "ABSENT"
+                    elif (int(s.reg_no[-2:]) + day_offset + i) % 7 == 0:
+                        status = "LATE"
+                    Attendance.objects.create(course=c, student=s, date=d, status=status)
+
+        # ------------------------------------------------------------------
+        # Course material for CSE 2101
+        # ------------------------------------------------------------------
+        from django.core.files.base import ContentFile
+        mat = CourseMaterial.objects.create(
+            course=ds_course, title="Week 5 — Trees (Lecture Slides)",
+            description="Binary trees, traversals, AVL rotations",
+            uploaded_by=t1.user,
+        )
+        mat.file.save(
+            "cse2101-week5-trees.txt",
+            ContentFile(
+                b"CSE 2101 Data Structures - Week 5 Lecture Notes\n"
+                b"Topics: Binary Trees, BST operations, AVL rotations.\n"
+                b"(Demo material file generated by seed_demo)\n"
+            ),
+        )
+
+        # ------------------------------------------------------------------
+        # Results & in-course marks
+        #   * Completed semesters 1-2: in-course submitted + FINAL published
+        #     with combined grades stamped -> visible on transcripts.
+        #   * CSE 2101: full pipeline done (in-course + final + published).
+        #   * CSE 2103/2105: finals submitted, awaiting in-course + publish.
+        #   * Lab courses: totals (/100) become the FINAL result directly;
+        #     CSE 2102 published, CSE 2104 awaiting publish.
+        # ------------------------------------------------------------------
+        def publish_theory(student, c, index, published_by, when, submitted_by):
+            ic = hist_incourse(student.reg_no, index)
+            InCourseMark.objects.create(
+                course=c, student=student, **ic,
+                submitted_by=submitted_by, submitted_at=when,
+            )
+            marks = final_for(student.reg_no[-4:], index)
+            grade, point = theory_course_grade(ic["total"], marks)
+            Result.objects.create(
+                student=student, course=c, exam_type="FINAL", marks=marks,
+                grade=grade, grade_point=point,
+                is_published=True, published_at=when, published_by=published_by,
+            )
+
         for student in cse_students:
-            # Final results of completed semesters: already reviewed & published
-            # by the Department Administrator -> visible to students.
+            # History: semesters 1-2 theory courses, completed & published
             for i, c in enumerate(cse_sem1 + cse_sem2):
+                publish_theory(student, c, i, published_by=da_cse.user,
+                               when=now, submitted_by=c.teacher.user)
+            # History lab CSE 1104: total /100 published (auto-graded on save)
+            Result.objects.create(
+                student=student, course=cse_sem1_lab, exam_type="FINAL",
+                marks=45 + (int(student.reg_no[-4:]) + 3) % 50,
+                is_published=True, published_at=now, published_by=da_cse.user,
+            )
+
+            # CSE 2101: in-course computed from the real seeded assessments +
+            # attendance, then finals published with combined grades stamped.
+            calc = compute_incourse(ds_course, student)
+            InCourseMark.objects.create(
+                course=ds_course, student=student,
+                term_test=calc["term_test"], assignment=calc["assignment"],
+                attendance=calc["attendance"], total=calc["total"],
+                submitted_by=t1.user, submitted_at=now,
+            )
+            marks = final_for(student.reg_no[-4:], 6)
+            grade, point = theory_course_grade(calc["total"], marks)
+            Result.objects.create(
+                student=student, course=ds_course, exam_type="FINAL", marks=marks,
+                grade=grade, grade_point=point,
+                is_published=True, published_at=now, published_by=da_cse.user,
+            )
+
+            # CSE 2103 + CSE 2105: finals submitted, NOT published and no
+            # in-course yet -> demonstrates the publish gate (in-course first).
+            for j, c in enumerate((db_course, ca_course)):
                 Result.objects.create(
                     student=student, course=c, exam_type="FINAL",
-                    marks=marks_for(student.reg_no[-4:], i),
-                    is_published=True, published_at=now,
-                    published_by=da_cse.user,
+                    marks=final_for(student.reg_no[-4:], 7 + j),
                 )
-            # Current semester midterms: first course published, second still
-            # pending review -> demonstrates the publish workflow.
-            for i, c in enumerate(cse_sem3):
-                if i < 2:
-                    Result.objects.create(
-                        student=student, course=c, exam_type="MID",
-                        marks=marks_for(student.reg_no[-4:], i + 3),
-                        is_published=(i == 0),
-                        published_at=now if i == 0 else None,
-                        published_by=da_cse.user if i == 0 else None,
-                    )
+
+            # Lab courses: component totals (/100) submitted as the result.
+            # CSE 2102 published (auto-graded), CSE 2104 awaiting publish.
+            lt = compute_lab_total(ds_lab, student)
+            Result.objects.create(
+                student=student, course=ds_lab, exam_type="FINAL",
+                marks=lt["total"], is_published=True,
+                published_at=now, published_by=da_cse.user,
+            )
+            mt = compute_lab_total(db_lab, student)
+            Result.objects.create(
+                student=student, course=db_lab, exam_type="FINAL", marks=mt["total"],
+            )
 
         # ------------------------------------------------------------------
         # Class routines
@@ -197,15 +381,19 @@ class Command(BaseCommand):
         slot(cse, 3, cse_sem3[1], t2, "Sunday", time(11, 0), time(12, 30), "302")
         slot(cse, 3, cse_sem3[2], t3, "Monday", time(9, 0), time(10, 30), "303")
         slot(cse, 3, cse_sem3[0], t1, "Tuesday", time(9, 0), time(10, 30), "301")
-        slot(cse, 3, cse_sem3[1], t2, "Wednesday", time(11, 0), time(12, 30), "Lab-1")
+        slot(cse, 3, cse_sem3[1], t2, "Wednesday", time(11, 0), time(12, 30), "302")
         slot(cse, 3, cse_sem3[2], t3, "Thursday", time(14, 0), time(15, 30), "303")
+        slot(cse, 3, ds_lab, t1, "Monday", time(11, 0), time(13, 0), "Lab-1")
+        slot(cse, 3, db_lab, t2, "Thursday", time(9, 0), time(11, 0), "Lab-2")
         slot(eee, 2, Course.objects.get(code="EEE 1201"), t3, "Sunday", time(9, 0), time(10, 30), "E-201")
         slot(eee, 2, Course.objects.get(code="EEE 1203"), t3, "Tuesday", time(11, 0), time(12, 30), "E-202")
         slot(ce, 1, Course.objects.get(code="CE 1101"), t4, "Monday", time(10, 30), time(12, 0), "C-101")
         slot(ce, 1, Course.objects.get(code="CE 1103"), t4, "Wednesday", time(9, 0), time(10, 30), "C-102")
 
         # ------------------------------------------------------------------
-        # Fee structures
+        # Fee structures — public university policy: per semester only two
+        # fees exist, Admission Fee (semester start) and Exam Fee (before
+        # the final exam).  Each is paid IN FULL at once — no installments.
         # ------------------------------------------------------------------
         def fees(dept, semester, **kw):
             for fee_type, amount in kw.items():
@@ -213,12 +401,12 @@ class Command(BaseCommand):
                     department=dept, semester=semester, fee_type=fee_type, amount=amount,
                 )
 
-        fees(cse, 1, ADMISSION=25000, TUITION=42000, LAB=3000, LIBRARY=1000, EXAM=1500)
-        fees(cse, 2, TUITION=42000, LAB=3000, LIBRARY=1000, EXAM=1500)
-        fees(cse, 3, TUITION=44000, LAB=3500, LIBRARY=1000, EXAM=1800)
-        fees(eee, 1, ADMISSION=25000, TUITION=40000, LAB=2800, LIBRARY=1000, EXAM=1500)
-        fees(eee, 2, TUITION=40000, LAB=2800, LIBRARY=1000, EXAM=1500)
-        fees(ce, 1, ADMISSION=25000, TUITION=38000, LAB=2500, LIBRARY=1000, EXAM=1500)
+        fees(cse, 1, ADMISSION=15000, EXAM=2500)   # sem-1 admission includes enrolment
+        fees(cse, 2, ADMISSION=12000, EXAM=2500)
+        fees(cse, 3, ADMISSION=12000, EXAM=2500)
+        fees(eee, 1, ADMISSION=14500, EXAM=2400)
+        fees(eee, 2, ADMISSION=12000, EXAM=2400)
+        fees(ce, 1, ADMISSION=14000, EXAM=2200)
 
         # ------------------------------------------------------------------
         # Payments (spread over recent months so charts look alive)
@@ -229,32 +417,46 @@ class Command(BaseCommand):
                 method="CASH", payment_date=date(y, m, d), received_by=cashier_user,
             )
 
-        # CSE sem-3 students: admission + tuition installments
-        pay(s1, "ADMISSION", 25000, 2026, 2, 10)
-        pay(s1, "TUITION", 42000, 2026, 3, 15)
-        pay(s1, "TUITION", 42000, 2026, 5, 12)
-        pay(s1, "TUITION", 22000, 2026, 7, 20)   # partial sem-3 payment -> due
-        pay(s2, "ADMISSION", 25000, 2026, 2, 11)
-        pay(s2, "TUITION", 42000, 2026, 3, 18)
-        pay(s2, "TUITION", 42000, 2026, 6, 9)
-        pay(s2, "TUITION", 44000, 2026, 8, 1)    # fully paid
-        pay(s3, "ADMISSION", 25000, 2026, 2, 12)
-        pay(s3, "TUITION", 42000, 2026, 4, 2)
-        pay(s3, "TUITION", 30000, 2026, 6, 25)   # partial -> due
-        pay(s4, "ADMISSION", 25000, 2026, 2, 15)
-        pay(s4, "TUITION", 42000, 2026, 3, 30)
-        pay(s4, "TUITION", 42000, 2026, 5, 28)
-        pay(s4, "TUITION", 44000, 2026, 8, 3)
-        # EEE sem-2
-        pay(s5, "ADMISSION", 25000, 2026, 3, 5)
-        pay(s5, "TUITION", 20000, 2026, 6, 14)   # partial -> due
-        pay(s6, "ADMISSION", 25000, 2026, 3, 8)
-        pay(s6, "TUITION", 40000, 2026, 7, 5)
-        # CE sem-1
-        pay(s7, "ADMISSION", 25000, 2026, 4, 1)
-        pay(s7, "TUITION", 15000, 2026, 7, 22)   # partial -> due
-        pay(s8, "ADMISSION", 25000, 2026, 4, 3)
-        pay(s8, "TUITION", 38000, 2026, 7, 28)   # paid tuition, still owes lab/library/exam
+        # Full-head payments only (no installments):
+        #   s1 Nafis   — sem 1-3 admission paid; sem-3 EXAM due (gate-ready)
+        #   s2 Ayesha  — everything paid (sem-3 EXAM paid TODAY, below)
+        #   s3 Tanvir  — sem 1-2 done; sem-3 BOTH unpaid -> the exam-gate demo:
+        #                must clear admission first, then exam (both together)
+        #   s4 Farhana — everything paid
+        #   s5 Mehdi   — sem-1 done; sem-2 BOTH unpaid
+        #   s6 Sultana — sem-1 done, sem-2 admission paid; EXAM slip PENDING
+        #   s7 Rakibul — sem-1 admission unpaid (dues demo)
+        #   s8 Mim     — sem-1 admission + exam paid (card; 1 duplicate voided)
+        pay(s1, "ADMISSION", 15000, 2026, 2, 10)
+        pay(s1, "EXAM", 2500, 2026, 5, 12)
+        pay(s1, "ADMISSION", 12000, 2026, 3, 15)
+        pay(s1, "EXAM", 2500, 2026, 6, 9)
+        pay(s1, "ADMISSION", 12000, 2026, 7, 25)          # sem-3 admission paid
+        pay(s2, "ADMISSION", 15000, 2026, 2, 11)
+        pay(s2, "EXAM", 2500, 2026, 5, 13)
+        pay(s2, "ADMISSION", 12000, 2026, 3, 18)
+        pay(s2, "EXAM", 2500, 2026, 6, 10)
+        pay(s2, "ADMISSION", 12000, 2026, 8, 1)           # sem-3 admission
+        pay(s3, "ADMISSION", 15000, 2026, 2, 12)
+        pay(s3, "EXAM", 2500, 2026, 5, 15)
+        pay(s3, "ADMISSION", 12000, 2026, 4, 2)
+        pay(s3, "EXAM", 2500, 2026, 6, 26)                # sem-2 done, sem-3 due
+        pay(s4, "ADMISSION", 15000, 2026, 2, 15)
+        pay(s4, "EXAM", 2500, 2026, 5, 28)
+        pay(s4, "ADMISSION", 12000, 2026, 3, 30)
+        pay(s4, "EXAM", 2500, 2026, 7, 2)
+        pay(s4, "ADMISSION", 12000, 2026, 8, 3)           # sem-3 admission
+        pay(s4, "EXAM", 2500, 2026, 8, 6)                 # sem-3 exam — fully paid
+        pay(s5, "ADMISSION", 14500, 2026, 3, 5)
+        pay(s5, "EXAM", 2400, 2026, 6, 14)                # sem-1 done, sem-2 due
+        pay(s6, "ADMISSION", 14500, 2026, 3, 8)
+        pay(s6, "EXAM", 2400, 2026, 7, 5)                 # sem-1 done
+        pay(s6, "ADMISSION", 12000, 2026, 7, 26)          # sem-2 admission
+        pay(s8, "ADMISSION", 14000, 2026, 4, 3)           # CE sem-1 admission
+        Payment.objects.create(                             # CE sem-1 exam via card
+            student=s8, fee_type="EXAM", amount=2200, method="CARD",
+            payment_date=date(2026, 8, 5), received_by=cashier_user,
+        )
 
         # ------------------------------------------------------------------
         # Library books (covers are drawn locally with Pillow — no downloads)
@@ -295,7 +497,6 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         # Book issues
         # ------------------------------------------------------------------
-        today = date.today()
         db_book = Book.objects.get(isbn="9780078022159")
         clean_code = Book.objects.get(isbn="9780132350884")
         algorithms = Book.objects.get(isbn="9780262033848")
@@ -339,24 +540,19 @@ class Command(BaseCommand):
         # Payments with demo statuses (today's collection / pending / cancelled)
         # ------------------------------------------------------------------
         Payment.objects.create(
-            student=s2, fee_type="LAB", amount=3500, method="CASH",
+            student=s2, fee_type="EXAM", amount=2500, method="CASH",
             payment_date=today, received_by=cashier_user,
-            note="Semester 3 lab fee",
-        )
-        Payment.objects.create(
-            student=s6, fee_type="EXAM", amount=1500, method="MOBILE",
-            payment_date=today, received_by=cashier_user,
-            note="bKash — mid-semester exam fee",
+            note="Semester 3 exam fee (in full)",
         )
         # A bank slip the cashier has not verified yet -> PENDING
         Payment.objects.create(
-            student=s3, fee_type="TUITION", amount=14000, method="BANK",
+            student=s6, fee_type="EXAM", amount=2400, method="BANK",
             status="PENDING", payment_date=today, received_by=cashier_user,
             note="DBBL deposit slip #D-44102 — awaiting verification",
         )
         # A duplicate entry that was voided -> CANCELLED (ignored in accounts)
         Payment.objects.create(
-            student=s8, fee_type="LAB", amount=2500, method="CARD",
+            student=s8, fee_type="EXAM", amount=2200, method="CARD",
             status="CANCELLED", payment_date=today - timedelta(days=2),
             received_by=cashier_user,
             note="Duplicate card swipe — voided",
@@ -366,18 +562,18 @@ class Command(BaseCommand):
         # Notices
         # ------------------------------------------------------------------
         Notice.objects.create(
-            title="Midterm Examination Routine — Fall 2026",
-            body="The midterm examinations for all departments will begin from 20 August 2026. Students are advised to collect their admit cards from the department office before 17 August 2026.",
+            title="Final Examination Routine — Fall 2026",
+            body="The final examinations for all departments will begin from 20 August 2026. Students are advised to collect their admit cards from the department office before 17 August 2026.",
             audience="ALL", created_by=admin,
         )
         Notice.objects.create(
             title="Semester Fee Payment Deadline",
-            body="All students must clear at least 60% of their current semester fees by 25 August 2026. Late payments will incur a fine of ৳500.",
+            body="All students must pay their semester Admission Fee in full by 25 August 2026 (no installments). Students with unpaid admission fees will not be able to pay their exam fee for the final examination.",
             audience="STUDENT", created_by=admin,
         )
         Notice.objects.create(
             title="Result Submission Deadline (Teachers)",
-            body="All course teachers are requested to submit midterm marks through the UMS by 30 August 2026.",
+            body="All course teachers are requested to submit in-course marks (out of 40) and final exam marks (out of 60) through the UMS by 30 August 2026.",
             audience="TEACHER", created_by=admin,
         )
         Notice.objects.create(
@@ -392,79 +588,10 @@ class Command(BaseCommand):
         )
         # Department-scoped notice (visible only inside CSE)
         Notice.objects.create(
-            title="CSE Semester 3 — Midterm Syllabus Announced",
-            body="The midterm syllabus for CSE 2101 and CSE 2103 has been finalized. Please contact your course teachers for the chapter list.",
+            title="CSE Semester 3 — Final Exam Syllabus Announced",
+            body="The final exam syllabus for CSE 2101 and CSE 2103 has been finalized. Please contact your course teachers for the chapter list.",
             audience="STUDENT", department=cse, created_by=da_cse.user,
         )
-
-        # ------------------------------------------------------------------
-        # Teacher coursework: assessments, attendance, materials, in-course
-        # ------------------------------------------------------------------
-        ds_course = cse_sem3[0]   # CSE 2101 (teacher t1) — fully seeded
-        db_course = cse_sem3[1]   # CSE 2103 (teacher t2) — partially seeded (demo work)
-
-        def assess(course, kind, title, max_marks, due=None, description=""):
-            return Assessment.objects.create(
-                course=course, kind=kind, title=title, max_marks=max_marks,
-                due_date=due, description=description,
-            )
-
-        # CSE 2101: 2 quizzes + 1 assignment + 1 lab, all marked
-        today = date.today()
-        a_q1 = assess(ds_course, "QUIZ", "Quiz 1 — Arrays & Linked Lists", 10, today - timedelta(days=14))
-        a_q2 = assess(ds_course, "QUIZ", "Quiz 2 — Stacks & Queues", 10, today - timedelta(days=7))
-        a_as1 = assess(ds_course, "ASSIGNMENT", "Assignment 1 — Implement a Binary Tree", 10, today + timedelta(days=6), "Submit source code and output screenshots")
-        a_lab = assess(ds_course, "LAB", "Lab Test 1 — Tree Traversals", 10, today - timedelta(days=3))
-        # CSE 2103: quiz marked, assignment upcoming (unmarked) -> demo pending
-        b_q1 = assess(db_course, "QUIZ", "Quiz 1 — ER Modelling", 10, today - timedelta(days=10))
-        b_as1 = assess(db_course, "ASSIGNMENT", "Assignment 1 — Design a Library Schema", 10, today + timedelta(days=9), "ER diagram + normalized schema")
-        b_q2 = assess(db_course, "QUIZ", "Quiz 2 — Normalization", 10, today + timedelta(days=12))
-
-        import random
-        random.seed(42)
-        for s in cse_students:
-            base = 6 + (int(s.reg_no[-2:]) % 5)  # 6..10 deterministic-ish
-            for a in (a_q1, a_q2, a_as1, a_lab, b_q1):
-                AssessmentMark.objects.create(
-                    assessment=a, student=s, marks=min(10, base + random.randint(-1, 1))
-                )
-
-        # Attendance: seed past 2 weeks for the two CSE sem-3 courses
-        for i, c in enumerate([ds_course, db_course]):
-            for day_offset in range(12, 0, -3):
-                d = today - timedelta(days=day_offset)
-                for s in cse_students:
-                    status = "PRESENT"
-                    if (int(s.reg_no[-2:]) + day_offset + i) % 11 == 0:
-                        status = "ABSENT"
-                    elif (int(s.reg_no[-2:]) + day_offset + i) % 7 == 0:
-                        status = "LATE"
-                    Attendance.objects.create(course=c, student=s, date=d, status=status)
-
-        # Course material for CSE 2101
-        from django.core.files.base import ContentFile
-        mat = CourseMaterial.objects.create(
-            course=ds_course, title="Week 5 — Trees (Lecture Slides)",
-            description="Binary trees, traversals, AVL rotations",
-            uploaded_by=t1.user,
-        )
-        mat.file.save(
-            "cse2101-week5-trees.txt",
-            ContentFile(
-                b"CSE 2101 Data Structures - Week 5 Lecture Notes\n"
-                b"Topics: Binary Trees, BST operations, AVL rotations.\n"
-                b"(Demo material file generated by seed_demo)\n"
-            ),
-        )
-
-        # Submit in-course marks for CSE 2101 (visible to students); leave
-        # CSE 2103 unsubmitted for the teacher to demo with.
-        for s in cse_students:
-            calc = compute_incourse(ds_course, s)
-            InCourseMark.objects.create(
-                course=ds_course, student=s, **calc,
-                submitted_by=t1.user, submitted_at=now,
-            )
 
         self.stdout.write(self.style.SUCCESS("Demo data seeded successfully."))
         self.stdout.write(

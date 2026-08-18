@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}In-course Marks{% endblock %}
 {% block page_heading %}In-course Marks{% endblock %}
-{% block page_subheading %}Submitted by your teachers · Mid 30 + Quiz 10 + Assignment 10 + Lab 10 = 60{% endblock %}
+{% block page_subheading %}Submitted by your teachers · Term Test 20 + Assignment 10 + Attendance 10 = 40{% endblock %}
 {% block content %}
 <div class="row g-3">
     {% for m in marks %}
@@ -14,17 +14,16 @@
                 </div>
                 <div class="text-end">
                     <div class="fs-2 fw-bold text-primary">{{ m.total|floatformat:1 }}</div>
-                    <small class="text-muted">/ 60</small>
+                    <small class="text-muted">/ 40</small>
                 </div>
             </div>
             <div class="progress mb-3" style="height:8px;">
-                <div class="progress-bar bg-primary" style="width: {% widthratio m.total 60 100 %}%"></div>
+                <div class="progress-bar bg-primary" style="width: {% widthratio m.total 40 100 %}%"></div>
             </div>
             <table class="table table-sm table-borderless small mb-1">
-                <tr><td class="text-muted">Mid (of 30)</td><td class="text-end fw-semibold">{{ m.mid }}</td></tr>
-                <tr><td class="text-muted">Quiz (of 10)</td><td class="text-end fw-semibold">{{ m.quiz }}</td></tr>
+                <tr><td class="text-muted">Term Test (of 20, avg of TT1 &amp; TT2)</td><td class="text-end fw-semibold">{{ m.term_test }}</td></tr>
                 <tr><td class="text-muted">Assignment (of 10)</td><td class="text-end fw-semibold">{{ m.assignment }}</td></tr>
-                <tr><td class="text-muted">Lab (of 10)</td><td class="text-end fw-semibold">{{ m.lab }}</td></tr>
+                <tr><td class="text-muted">Attendance (of 10)</td><td class="text-end fw-semibold">{{ m.attendance }}</td></tr>
             </table>
             <small class="text-muted"><i class="fa-solid fa-user-check me-1"></i>Submitted by {{ m.submitted_by.get_full_name|default:"teacher" }} on {{ m.submitted_at|date:"d M Y" }}</small>
         </div></div>
